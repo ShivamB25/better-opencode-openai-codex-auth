@@ -148,7 +148,6 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenRes
 		};
 		if (
 			!json?.access_token ||
-			!json?.refresh_token ||
 			typeof json?.expires_in !== "number"
 		) {
 			console.error(
@@ -161,7 +160,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenRes
 		return {
 			type: "success",
 			access: json.access_token,
-			refresh: json.refresh_token,
+			refresh: json.refresh_token || refreshToken,
 			expires: Date.now() + json.expires_in * 1000,
 		};
 	} catch (error) {

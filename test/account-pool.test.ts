@@ -132,4 +132,21 @@ describe("AccountPool", () => {
 		expect((minRetryAfter as number) / 1000).toBeLessThanOrEqual(10);
 		expect((minRetryAfter as number) / 1000).toBeGreaterThan(8);
 	});
+
+	it("supports retry-after HTTP date format", () => {
+		const pool = AccountPool.load();
+		pool.upsert({
+			accountId: "a1",
+			access: "access-1",
+			refresh: "refresh-1",
+			expires: Date.now() + 60_000,
+		});
+		const dateHeader = new Date(Date.now() + 5_000).toUTCString();
+		pool.markRateLimited("a1", new Headers({ "retry-after": dateHeader }));
+
+		const minRetryAfter = pool.getMinRetryAfterMs();
+		expect(minRetryAfter).not.toBeNull();
+		expect(minRetryAfter as number).toBeGreaterThan(2000);
+		expect(minRetryAfter as number).toBeLessThanOrEqual(5000);
+	});
 });

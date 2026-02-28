@@ -1,9 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
 	createState,
 	parseAuthorizationInput,
 	decodeJWT,
 	createAuthorizationFlow,
+	refreshAccessToken,
 	CLIENT_ID,
 	AUTHORIZE_URL,
 	REDIRECT_URI,
@@ -11,6 +12,31 @@ import {
 } from '../lib/auth/auth.js';
 
 describe('Auth Module', () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	describe('refreshAccessToken', () => {
+		it('uses existing refresh token when response omits refresh_token', async () => {
+			vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						access_token: 'new-access',
+						expires_in: 3600,
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				),
+			);
+
+			const result = await refreshAccessToken('existing-refresh');
+			expect(result.type).toBe('success');
+			if (result.type === 'success') {
+				expect(result.refresh).toBe('existing-refresh');
+				expect(result.access).toBe('new-access');
+			}
+		});
+	});
+
 	describe('createState', () => {
 		it('should generate a random 32-character hex string', () => {
 			const state = createState();

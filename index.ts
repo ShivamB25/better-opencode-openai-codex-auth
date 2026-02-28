@@ -262,15 +262,19 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 									(latestAuth.refresh === selectedRefreshBefore ||
 										latestAccountIdFromAuth === selected.accountId)
 								) {
-									await client.auth.set({
-										path: { id: "openai" },
-										body: {
-											type: "oauth",
-											access: refreshed.access,
-											refresh: refreshed.refresh,
-											expires: refreshed.expires,
-										},
-									});
+									try {
+										await client.auth.set({
+											path: { id: "openai" },
+											body: {
+												type: "oauth",
+												access: refreshed.access,
+												refresh: refreshed.refresh,
+												expires: refreshed.expires,
+											},
+										});
+									} catch (error) {
+										logWarn("Failed to persist refreshed auth", error);
+									}
 								}
 							}
 

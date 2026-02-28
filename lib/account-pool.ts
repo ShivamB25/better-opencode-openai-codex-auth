@@ -1,5 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
+import { randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 import type { AccountPoolEntry, AccountPoolStorage } from "./types.js";
 
@@ -69,15 +70,23 @@ function normalizeCooldown(cooldownMs?: number): number {
 }
 
 function retryAfterFromHeaders(headers: Headers, fallbackMs: number): number {
+	const maxRetryMs = 86_400_000;
 	const retryAfterMs = headers.get("retry-after-ms");
 	if (retryAfterMs) {
 		const parsed = Number.parseInt(retryAfterMs, 10);
-		if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+		if (!Number.isNaN(parsed) && parsed > 0 && parsed <= maxRetryMs) return parsed;
 	}
 	const retryAfter = headers.get("retry-after");
 	if (retryAfter) {
-		const parsed = Number.parseInt(retryAfter, 10);
-		if (!Number.isNaN(parsed) && parsed > 0) return parsed * 1000;
+		const seconds = Number.parseInt(retryAfter, 10);
+		if (!Number.isNaN(seconds) && seconds > 0 && seconds * 1000 <= maxRetryMs) {
+			return seconds * 1000;
+		}
+		const retryDateMs = Date.parse(retryAfter);
+		if (!Number.isNaN(retryDateMs)) {
+			const remaining = retryDateMs - now();
+			if (remaining > 0 && remaining <= maxRetryMs) return remaining;
+		}
 	}
 	const codexPrimary = headers.get("x-codex-primary-reset-after-seconds");
 	if (codexPrimary) {
@@ -118,7 +127,7 @@ export class AccountPool {
 			activeIndex: clampIndex(this.activeIndex, this.accounts.length || 1),
 			accounts: this.accounts,
 		};
-		const tempPath = `${path}.tmp.${process.pid}.${Date.now()}`;
+		const tempPath = `${path}.tmp.${process.pid}.${Date.now()}.${randomUUID()}`;
 		writeFileSync(tempPath, `${JSON.stringify(payload, null, 2)}\n`, {
 			encoding: "utf8",
 			mode: 0o600,
