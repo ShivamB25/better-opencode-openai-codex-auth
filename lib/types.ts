@@ -9,6 +9,24 @@ export interface PluginConfig {
 	 * @default true
 	 */
 	codexMode?: boolean;
+	accountSelectionStrategy?: "sticky" | "round-robin";
+	rateLimitCooldownMs?: number;
+}
+
+export interface AccountPoolEntry {
+	accountId: string;
+	refresh: string;
+	access: string;
+	expires: number;
+	email?: string;
+	lastUsed?: number;
+	rateLimitedUntil?: number;
+}
+
+export interface AccountPoolStorage {
+	version: 1;
+	activeIndex: number;
+	accounts: AccountPoolEntry[];
 }
 
 /**

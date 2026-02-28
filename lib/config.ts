@@ -11,6 +11,8 @@ const CONFIG_PATH = join(homedir(), ".opencode", "openai-codex-auth-config.json"
  */
 const DEFAULT_CONFIG: PluginConfig = {
 	codexMode: true,
+	accountSelectionStrategy: "round-robin",
+	rateLimitCooldownMs: 60_000,
 };
 
 /**

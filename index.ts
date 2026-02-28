@@ -29,6 +29,7 @@ import {
 	decodeJWT,
 	exchangeAuthorizationCode,
 	parseAuthorizationInput,
+	refreshAccessToken,
 	REDIRECT_URI,
 } from "./lib/auth/auth.js";
 import { openBrowserUrl } from "./lib/auth/browser.js";
@@ -41,8 +42,6 @@ import {
 	ERROR_MESSAGES,
 	JWT_CLAIM_PATH,
 	LOG_STAGES,
-	OPENAI_HEADER_VALUES,
-	OPENAI_HEADERS,
 	PLUGIN_NAME,
 	PROVIDER_ID,
 } from "./lib/constants.js";
@@ -52,12 +51,11 @@ import {
 	extractRequestUrl,
 	handleErrorResponse,
 	handleSuccessResponse,
-	refreshAndUpdateToken,
 	rewriteUrlForCodex,
-	shouldRefreshToken,
 	transformRequestForCodex,
 } from "./lib/request/fetch-helpers.js";
-import type { UserConfig } from "./lib/types.js";
+import type { RequestBody, UserConfig } from "./lib/types.js";
+import { AccountPool } from "./lib/account-pool.js";
 
 /**
  * OpenAI Codex OAuth authentication plugin for opencode
@@ -140,6 +138,22 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 				// Priority: CODEX_MODE env var > config file > default (true)
 				const pluginConfig = loadPluginConfig();
 				const codexMode = getCodexMode(pluginConfig);
+				const accountSelectionStrategy =
+					pluginConfig.accountSelectionStrategy === "sticky" ? "sticky" : "round-robin";
+				const rateLimitCooldownMs = pluginConfig.rateLimitCooldownMs;
+
+				const accountPool = AccountPool.load();
+				accountPool.upsert({
+					accountId,
+					access: auth.access,
+					refresh: auth.refresh,
+					expires: auth.expires,
+					email:
+						typeof decoded?.email === "string"
+							? decoded.email
+							: undefined,
+				});
+				accountPool.save();
 
 				// Return SDK configuration
 				return {
@@ -164,10 +178,22 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 						input: Request | string | URL,
 						init?: RequestInit,
 					): Promise<Response> {
-						// Step 1: Check and refresh token if needed
-						let currentAuth = await getAuth();
-						if (shouldRefreshToken(currentAuth)) {
-							currentAuth = await refreshAndUpdateToken(currentAuth, client);
+						const latestAuth = await getAuth();
+						if (latestAuth.type === "oauth") {
+							const latestDecoded = decodeJWT(latestAuth.access);
+							const latestAccountId = latestDecoded?.[JWT_CLAIM_PATH]?.chatgpt_account_id;
+							if (latestAccountId) {
+								accountPool.upsert({
+									accountId: latestAccountId,
+									access: latestAuth.access,
+									refresh: latestAuth.refresh,
+									expires: latestAuth.expires,
+									email:
+										typeof latestDecoded?.email === "string"
+											? latestDecoded.email
+											: undefined,
+								});
+							}
 						}
 
 						// Step 2: Extract and rewrite URL for Codex backend
@@ -189,39 +215,95 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 						);
 						const requestInit = transformation?.updatedInit ?? init;
 
-						// Step 4: Create headers with OAuth and ChatGPT account info
-						const accessToken =
-							currentAuth.type === "oauth" ? currentAuth.access : "";
-						const headers = createCodexHeaders(
-							requestInit,
-							accountId,
-							accessToken,
-							{
-								model: transformation?.body.model,
-								promptCacheKey: (transformation?.body as any)?.prompt_cache_key,
-							},
-						);
+						const attempts = Math.max(accountPool.count(), 1);
+						let lastRateLimitResponse: Response | null = null;
+						for (let i = 0; i < attempts; i++) {
+							const selected = accountPool.next(accountSelectionStrategy);
+							if (!selected) {
+								break;
+							}
 
-						// Step 5: Make request to Codex API
-						const response = await fetch(url, {
-							...requestInit,
-							headers,
-						});
+							if (selected.expires < Date.now()) {
+								const refreshed = await refreshAccessToken(selected.refresh);
+								if (refreshed.type === "failed") {
+									accountPool.markRateLimited(
+										selected.accountId,
+										new Headers(),
+										rateLimitCooldownMs,
+									);
+									accountPool.save();
+									continue;
+								}
+								accountPool.replaceAuth(
+									selected.accountId,
+									refreshed.access,
+									refreshed.refresh,
+									refreshed.expires,
+								);
+								if (latestAuth.type === "oauth" && latestAuth.refresh === selected.refresh) {
+									await client.auth.set({
+										path: { id: "openai" },
+										body: {
+											type: "oauth",
+											access: refreshed.access,
+											refresh: refreshed.refresh,
+											expires: refreshed.expires,
+										},
+									});
+								}
+							}
 
-						// Step 6: Log response
-						logRequest(LOG_STAGES.RESPONSE, {
-							status: response.status,
-							ok: response.ok,
-							statusText: response.statusText,
-							headers: Object.fromEntries(response.headers.entries()),
-						});
+							const headers = createCodexHeaders(
+								requestInit,
+								selected.accountId,
+								selected.access,
+								{
+									model: transformation?.body.model,
+									promptCacheKey: (transformation?.body as RequestBody | undefined)
+										?.prompt_cache_key,
+								},
+							);
 
-						// Step 7: Handle error or success response
-						if (!response.ok) {
-							return await handleErrorResponse(response);
+							const response = await fetch(url, {
+								...requestInit,
+								headers,
+							});
+
+							logRequest(LOG_STAGES.RESPONSE, {
+								status: response.status,
+								ok: response.ok,
+								statusText: response.statusText,
+								headers: Object.fromEntries(response.headers.entries()),
+								accountId: selected.accountId,
+								attempt: i + 1,
+								totalAttempts: attempts,
+							});
+
+							if (!response.ok) {
+								const mapped = await handleErrorResponse(response);
+								if (mapped.status === 429) {
+									accountPool.markRateLimited(
+										selected.accountId,
+										mapped.headers,
+										rateLimitCooldownMs,
+									);
+									accountPool.save();
+									lastRateLimitResponse = mapped;
+									continue;
+								}
+								accountPool.save();
+								return mapped;
+							}
+
+							accountPool.save();
+							return await handleSuccessResponse(response, isStreaming);
 						}
 
-						return await handleSuccessResponse(response, isStreaming);
+						accountPool.save();
+						if (lastRateLimitResponse) {
+							return lastRateLimitResponse;
+						}
+						throw new Error("No available ChatGPT account in account pool");
 					},
 				};
 			},
