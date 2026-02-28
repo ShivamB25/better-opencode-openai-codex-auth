@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import type { AccountPoolEntry, AccountPoolStorage } from "./types.js";
@@ -118,7 +118,16 @@ export class AccountPool {
 			activeIndex: clampIndex(this.activeIndex, this.accounts.length || 1),
 			accounts: this.accounts,
 		};
-		writeFileSync(path, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+		const tempPath = `${path}.tmp.${process.pid}.${Date.now()}`;
+		writeFileSync(tempPath, `${JSON.stringify(payload, null, 2)}\n`, {
+			encoding: "utf8",
+			mode: 0o600,
+		});
+		renameSync(tempPath, path);
+		try {
+			chmodSync(path, 0o600);
+		} catch {
+		}
 	}
 
 	upsert(entry: AccountPoolEntry): void {
@@ -133,9 +142,16 @@ export class AccountPool {
 		if (idx >= 0) {
 			const existing = this.accounts[idx];
 			if (!existing) return;
+			const incomingIsOlder = normalized.expires < existing.expires;
+			const nextAccess = incomingIsOlder ? existing.access : normalized.access;
+			const nextRefresh = incomingIsOlder ? existing.refresh : normalized.refresh;
+			const nextExpires = incomingIsOlder ? existing.expires : normalized.expires;
 			this.accounts[idx] = {
 				...existing,
 				...normalized,
+				access: nextAccess,
+				refresh: nextRefresh,
+				expires: nextExpires,
 				rateLimitedUntil: existing.rateLimitedUntil,
 			};
 		} else {
@@ -151,6 +167,19 @@ export class AccountPool {
 	getAvailableCount(): number {
 		const t = now();
 		return this.accounts.filter((a) => !a.rateLimitedUntil || a.rateLimitedUntil <= t).length;
+	}
+
+	getMinRetryAfterMs(): number | null {
+		const t = now();
+		let min: number | null = null;
+		for (const account of this.accounts) {
+			if (!account.rateLimitedUntil || account.rateLimitedUntil <= t) continue;
+			const remaining = account.rateLimitedUntil - t;
+			if (min === null || remaining < min) {
+				min = remaining;
+			}
+		}
+		return min;
 	}
 
 	markRateLimited(accountId: string, headers: Headers, cooldownMs?: number): void {

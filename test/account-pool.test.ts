@@ -89,4 +89,47 @@ describe("AccountPool", () => {
 
 		expect(selected?.accountId).toBe("a1");
 	});
+
+	it("does not overwrite newer credentials with stale auth", () => {
+		const pool = AccountPool.load();
+		pool.upsert({
+			accountId: "a1",
+			access: "access-new",
+			refresh: "refresh-new",
+			expires: Date.now() + 120_000,
+		});
+		pool.upsert({
+			accountId: "a1",
+			access: "access-old",
+			refresh: "refresh-old",
+			expires: Date.now() + 10_000,
+		});
+
+		const selected = pool.next("sticky");
+		expect(selected?.access).toBe("access-new");
+		expect(selected?.refresh).toBe("refresh-new");
+	});
+
+	it("returns minimum retry-after for limited accounts", () => {
+		const pool = AccountPool.load();
+		pool.upsert({
+			accountId: "a1",
+			access: "access-1",
+			refresh: "refresh-1",
+			expires: Date.now() + 60_000,
+		});
+		pool.upsert({
+			accountId: "a2",
+			access: "access-2",
+			refresh: "refresh-2",
+			expires: Date.now() + 60_000,
+		});
+		pool.markRateLimited("a1", new Headers({ "retry-after": "60" }));
+		pool.markRateLimited("a2", new Headers({ "retry-after": "10" }));
+
+		const minRetryAfter = pool.getMinRetryAfterMs();
+		expect(minRetryAfter).not.toBeNull();
+		expect((minRetryAfter as number) / 1000).toBeLessThanOrEqual(10);
+		expect((minRetryAfter as number) / 1000).toBeGreaterThan(8);
+	});
 });

@@ -45,7 +45,7 @@ import {
 	PLUGIN_NAME,
 	PROVIDER_ID,
 } from "./lib/constants.js";
-import { logRequest, logDebug } from "./lib/logger.js";
+import { logRequest, logDebug, logWarn } from "./lib/logger.js";
 import {
 	createCodexHeaders,
 	extractRequestUrl,
@@ -143,6 +143,13 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 				const rateLimitCooldownMs = pluginConfig.rateLimitCooldownMs;
 
 				const accountPool = AccountPool.load();
+				const savePool = () => {
+					try {
+						accountPool.save();
+					} catch (error) {
+						logWarn("Failed to persist account pool", error);
+					}
+				};
 				accountPool.upsert({
 					accountId,
 					access: auth.access,
@@ -153,7 +160,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 							? decoded.email
 							: undefined,
 				});
-				accountPool.save();
+				savePool();
 
 				// Return SDK configuration
 				return {
@@ -179,9 +186,11 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 						init?: RequestInit,
 					): Promise<Response> {
 						const latestAuth = await getAuth();
+						let latestAccountIdFromAuth: string | undefined;
 						if (latestAuth.type === "oauth") {
 							const latestDecoded = decodeJWT(latestAuth.access);
 							const latestAccountId = latestDecoded?.[JWT_CLAIM_PATH]?.chatgpt_account_id;
+							latestAccountIdFromAuth = latestAccountId;
 							if (latestAccountId) {
 								accountPool.upsert({
 									accountId: latestAccountId,
@@ -204,7 +213,14 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 						// Instructions are fetched per model family (codex-max, codex, gpt-5.1)
 						// Capture original stream value before transformation
 						// generateText() sends no stream field, streamText() sends stream=true
-						const originalBody = init?.body ? JSON.parse(init.body as string) : {};
+						let originalBody: Partial<RequestBody> = {};
+						if (typeof init?.body === "string") {
+							try {
+								originalBody = JSON.parse(init.body) as Partial<RequestBody>;
+							} catch {
+								originalBody = {};
+							}
+						}
 						const isStreaming = originalBody.stream === true;
 
 						const transformation = await transformRequestForCodex(
@@ -224,6 +240,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 							}
 
 							if (selected.expires < Date.now()) {
+								const selectedRefreshBefore = selected.refresh;
 								const refreshed = await refreshAccessToken(selected.refresh);
 								if (refreshed.type === "failed") {
 									accountPool.markRateLimited(
@@ -231,7 +248,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 										new Headers(),
 										rateLimitCooldownMs,
 									);
-									accountPool.save();
+									savePool();
 									continue;
 								}
 								accountPool.replaceAuth(
@@ -240,7 +257,11 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 									refreshed.refresh,
 									refreshed.expires,
 								);
-								if (latestAuth.type === "oauth" && latestAuth.refresh === selected.refresh) {
+								if (
+									latestAuth.type === "oauth" &&
+									(latestAuth.refresh === selectedRefreshBefore ||
+										latestAccountIdFromAuth === selected.accountId)
+								) {
 									await client.auth.set({
 										path: { id: "openai" },
 										body: {
@@ -287,23 +308,41 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 										mapped.headers,
 										rateLimitCooldownMs,
 									);
-									accountPool.save();
+									savePool();
 									lastRateLimitResponse = mapped;
 									continue;
 								}
-								accountPool.save();
+								savePool();
 								return mapped;
 							}
 
-							accountPool.save();
+							savePool();
 							return await handleSuccessResponse(response, isStreaming);
 						}
 
-						accountPool.save();
+						savePool();
 						if (lastRateLimitResponse) {
 							return lastRateLimitResponse;
 						}
-						throw new Error("No available ChatGPT account in account pool");
+						const retryAfterMs = accountPool.getMinRetryAfterMs();
+						const retryAfterSeconds = retryAfterMs ? Math.max(1, Math.ceil(retryAfterMs / 1000)) : null;
+						return new Response(
+							JSON.stringify({
+								error: {
+									code: "usage_limit_reached",
+									message: "All ChatGPT accounts are temporarily rate-limited",
+								},
+							}),
+							{
+								status: 429,
+								headers: {
+									"content-type": "application/json",
+									...(retryAfterSeconds
+										? { "retry-after": String(retryAfterSeconds) }
+										: {}),
+								},
+							},
+						);
 					},
 				};
 			},
