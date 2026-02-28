@@ -170,10 +170,11 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 					 * Custom fetch implementation for Codex API
 					 *
 					 * Handles:
-					 * - Token refresh when expired
+					 * - Per-account token refresh when expired (inside retry loop)
 					 * - URL rewriting for Codex backend
 					 * - Request body transformation
-					 * - OAuth header injection
+					 * - OAuth header injection per selected account
+					 * - Automatic 429 rotation across account pool
 					 * - SSE to JSON conversion for non-tool requests
 					 * - Error handling and logging
 					 *
@@ -205,11 +206,11 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 							}
 						}
 
-						// Step 2: Extract and rewrite URL for Codex backend
+						// Step 1: Extract and rewrite URL for Codex backend
 						const originalUrl = extractRequestUrl(input);
 						const url = rewriteUrlForCodex(originalUrl);
 
-						// Step 3: Transform request body with model-specific Codex instructions
+						// Step 2: Transform request body with model-specific Codex instructions
 						// Instructions are fetched per model family (codex-max, codex, gpt-5.1)
 						// Capture original stream value before transformation
 						// generateText() sends no stream field, streamText() sends stream=true
@@ -243,11 +244,11 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 								const selectedRefreshBefore = selected.refresh;
 								const refreshed = await refreshAccessToken(selected.refresh);
 								if (refreshed.type === "failed") {
-									accountPool.markRateLimited(
-										selected.accountId,
-										new Headers(),
-										rateLimitCooldownMs,
-									);
+									// Auth failure (revoked/invalid token) is NOT a rate limit.
+									// Calling markRateLimited here would retry the same dead
+									// token after cooldown, looping forever. Skip this account
+									// for the current request without penalizing it.
+									logWarn("Token refresh failed for account, skipping", selected.accountId);
 									savePool();
 									continue;
 								}

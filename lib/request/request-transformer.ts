@@ -73,7 +73,7 @@ export function normalizeModel(model: string | undefined): string {
 		return "gpt-5.2";
 	}
 
-	// 3. GPT-5.1 Codex Max
+	// 5. GPT-5.1 Codex Max
 	if (
 		normalized.includes("gpt-5.1-codex-max") ||
 		normalized.includes("gpt 5.1 codex max")
@@ -81,7 +81,7 @@ export function normalizeModel(model: string | undefined): string {
 		return "gpt-5.1-codex-max";
 	}
 
-	// 4. GPT-5.1 Codex Mini
+	// 6. GPT-5.1 Codex Mini
 	if (
 		normalized.includes("gpt-5.1-codex-mini") ||
 		normalized.includes("gpt 5.1 codex mini")

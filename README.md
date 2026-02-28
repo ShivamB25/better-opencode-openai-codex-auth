@@ -43,6 +43,8 @@ npx -y opencode-openai-codex-auth@latest --uninstall --all
 ```
 ---
 ## 📦 Models
+- **gpt-5.3** (none/low/medium/high/xhigh)
+- **gpt-5.3-codex** (low/medium/high/xhigh)
 - **gpt-5.2** (none/low/medium/high/xhigh)
 - **gpt-5.2-codex** (low/medium/high/xhigh)
 - **gpt-5.1-codex-max** (low/medium/high/xhigh)
@@ -58,7 +60,7 @@ Minimal configs are not supported for GPT‑5.x; use the full configs above.
 ---
 ## ✅ Features
 - ChatGPT Plus/Pro OAuth authentication (official flow)
-- 22 model presets across GPT‑5.2 / GPT‑5.2 Codex / GPT‑5.1 families
+- 33 model presets across GPT 5.3 / GPT 5.2 / GPT 5.1 families
 - Variant system support (v1.0.210+) + legacy presets
 - Multimodal input enabled for all models
 - Usage‑aware errors + automatic token refresh

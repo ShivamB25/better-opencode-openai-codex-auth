@@ -36,21 +36,23 @@ npm run test:coverage
 
 ### Plugin Flow (index.ts)
 
-The main entry point orchestrates a **7-step fetch flow**:
+The main entry point orchestrates a **6-step fetch flow** (token refresh is now per-account inside the retry loop):
 
-1. **Token Management**: Check token expiration, refresh if needed
-2. **URL Rewriting**: Transform OpenAI Platform API URLs → ChatGPT backend API (`https://chatgpt.com/backend-api/codex/responses`)
-3. **Request Transformation**:
+1. **URL Rewriting**: Transform OpenAI Platform API URLs → ChatGPT backend API (`https://chatgpt.com/backend-api/codex/responses`)
+2. **Request Transformation**:
    - Normalize model names (all variants → `gpt-5.3`, `gpt-5.3-codex`, `gpt-5.2`, `gpt-5.2-codex`, `gpt-5.1`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5`, `gpt-5-codex`, or `codex-mini-latest`)
    - Inject Codex system instructions from latest GitHub release
    - Apply reasoning configuration (effort, summary, verbosity)
    - Add CODEX_MODE bridge prompt (default) or tool remap message (legacy)
    - Filter OpenCode system prompts when in CODEX_MODE
    - Filter conversation history (remove `rs_*` IDs for stateless operation)
-4. **Headers**: Add OAuth token + ChatGPT account ID
+3. **Account Selection + Token Refresh** (per-account retry loop):
+   - Pick next account from pool using round-robin or sticky strategy
+   - Refresh token for selected account if expired (auth failure skips account without rate-limit penalty)
+   - Rotate to next account automatically on 429 responses
+4. **Headers**: Add OAuth token + selected ChatGPT account ID
 5. **Request Execution**: Send to Codex backend
-6. **Response Logging**: Optional debug logging (ENABLE_PLUGIN_REQUEST_LOGGING=1)
-7. **Response Handling**: Convert SSE to JSON (non-tool requests) or pass through
+6. **Response Handling**: Convert SSE to JSON (non-tool requests) or pass through; optional debug logging (`ENABLE_PLUGIN_REQUEST_LOGGING=1`)
 
 ### Module Organization
 
