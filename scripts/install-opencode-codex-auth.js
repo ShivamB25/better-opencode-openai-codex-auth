@@ -56,6 +56,7 @@ const pluginConfigPath = join(
 	".opencode",
 	"openai-codex-auth-config.json",
 );
+const pluginAccountsPath = join(homedir(), ".opencode", "openai-codex-accounts.json");
 const pluginLogDir = join(homedir(), ".opencode", "logs", "codex-plugin");
 const opencodeCacheDir = join(homedir(), ".opencode", "cache");
 
@@ -252,10 +253,12 @@ async function clearPluginArtifacts() {
 	if (dryRun) {
 		log(`[dry-run] Would remove ${opencodeAuthPath}`);
 		log(`[dry-run] Would remove ${pluginConfigPath}`);
+		log(`[dry-run] Would remove ${pluginAccountsPath}`);
 		log(`[dry-run] Would remove ${pluginLogDir}`);
 	} else {
 		await rm(opencodeAuthPath, { force: true });
 		await rm(pluginConfigPath, { force: true });
+		await rm(pluginAccountsPath, { force: true });
 		await rm(pluginLogDir, { recursive: true, force: true });
 	}
 

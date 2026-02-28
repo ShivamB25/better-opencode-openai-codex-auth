@@ -62,6 +62,7 @@ Minimal configs are not supported for GPT‑5.x; use the full configs above.
 - Variant system support (v1.0.210+) + legacy presets
 - Multimodal input enabled for all models
 - Usage‑aware errors + automatic token refresh
+- Multi-account pool with round-robin or sticky selection (`~/.opencode/openai-codex-accounts.json`)
 ---
 ## 📚 Docs
 - Getting Started: `docs/getting-started.md`

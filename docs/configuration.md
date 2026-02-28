@@ -367,7 +367,9 @@ Advanced plugin settings in `~/.opencode/openai-codex-auth-config.json`:
 
 ```json
 {
-  "codexMode": true
+  "codexMode": true,
+  "accountSelectionStrategy": "round-robin",
+  "rateLimitCooldownMs": 60000
 }
 ```
 
@@ -388,6 +390,13 @@ Advanced plugin settings in `~/.opencode/openai-codex-auth-config.json`:
 CODEX_MODE=0 opencode run "task"  # Temporarily disable
 CODEX_MODE=1 opencode run "task"  # Temporarily enable
 ```
+
+### Multi-account rotation
+
+- `accountSelectionStrategy`: `"round-robin"` (default) rotates on each request, `"sticky"` keeps current account until limited.
+- `rateLimitCooldownMs`: fallback cooldown when reset headers are missing.
+- Account pool is stored in `~/.opencode/openai-codex-accounts.json` and is auto-merged when you log in again.
+- To add more accounts, run `opencode auth login` again with another ChatGPT account.
 
 ### Prompt caching
 
@@ -417,6 +426,7 @@ CODEX_MODE=1 opencode run "task"  # Temporarily enable
 - `~/.config/opencode/opencode.json` - Global config (fallback)
 - `<project>/.opencode.json` - Project-specific config
 - `~/.opencode/openai-codex-auth-config.json` - Plugin config
+- `~/.opencode/openai-codex-accounts.json` - Multi-account pool state
 
 ---
 
