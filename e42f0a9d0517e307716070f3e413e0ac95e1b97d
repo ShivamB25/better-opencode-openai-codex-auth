@@ -1,0 +1,23 @@
+package.json
+  86a1835030525c4f 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "e42f0a9d0517e307716070f3e413e0ac95e1b97d",
+  "prompts": {
+    "86a1835030525c4f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_3560bb263ffe63x0RAat76acwa-bc3d0f79-faff-45f2-9f2a-fad57f46aadc",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
