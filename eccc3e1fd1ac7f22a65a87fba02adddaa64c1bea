@@ -1,0 +1,38 @@
+CONTRIBUTING.md
+  e8a63fbf6f639955 39
+AGENTS.md
+  8d4e4b628766d892 162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "eccc3e1fd1ac7f22a65a87fba02adddaa64c1bea",
+  "prompts": {
+    "8d4e4b628766d892": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_35969af1effedV2KpUhZKza0cH-9a9ca6c4-55df-4c98-a7cb-6fbba03e19ed",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "e8a63fbf6f639955": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_35969af1effedV2KpUhZKza0cH-9337703e-fbcb-4d30-a876-938a3c177def",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
