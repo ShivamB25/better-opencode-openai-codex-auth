@@ -1,0 +1,68 @@
+lib/logger.ts
+  2658da38cf6ffda8 89-98
+lib/request/request-transformer.ts
+  3211caf842f89003 36-38
+lib/schemas.ts
+  6ad06425d4de39fc 1-114
+lib/constants.ts
+  62710730e66cb421 103-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "a8b66bce223d728b4b865d69dff290ee9207a571",
+  "prompts": {
+    "2658da38cf6ffda8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_355be7cd8ffeHdWIiiyDD1pR7O-39cf8137-7f30-4f19-a7c2-81159297b616",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 0,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    },
+    "3211caf842f89003": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_355be7cd8ffeHdWIiiyDD1pR7O-1c07f818-4855-457c-bee3-5593fc161251",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 1,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "62710730e66cb421": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_355be7cd8ffeHdWIiiyDD1pR7O-e03bff87-9992-4ff0-864e-4775d6a80a38",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 0,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    },
+    "6ad06425d4de39fc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_355be7cd8ffeHdWIiiyDD1pR7O-420246c4-1e57-48b3-a1da-7529e8f06bde",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 114,
+      "total_deletions": 0,
+      "accepted_lines": 114,
+      "overriden_lines": 0
+    }
+  }
+}
