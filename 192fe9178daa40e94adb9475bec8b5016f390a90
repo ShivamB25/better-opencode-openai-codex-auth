@@ -1,0 +1,23 @@
+.github/workflows/publish-beta.yml
+  3c70867f7a201b5b 25,88,107,109-110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "192fe9178daa40e94adb9475bec8b5016f390a90",
+  "prompts": {
+    "3c70867f7a201b5b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_355be7cd8ffeHdWIiiyDD1pR7O-7c6eadcd-5353-4e09-bcdb-9613c0fd6e4a",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 8,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    }
+  }
+}
