@@ -1,0 +1,23 @@
+README.md
+  525c13cc2529d949 2-4,9,11-12,15-19,21,23,25-27,31-33,38-40,45-47,52,54-56,65,68-71,73-74,76-80,82-83,85,87-94,97-99
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.6",
+  "base_commit_sha": "56bc7aec24d09c72beae84f7a4e5f826423fee79",
+  "prompts": {
+    "525c13cc2529d949": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_35969af1effedV2KpUhZKza0cH-db084d9a-4009-4d6d-89f4-b4f4cc699ae0",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 58,
+      "total_deletions": 38,
+      "accepted_lines": 57,
+      "overriden_lines": 0
+    }
+  }
+}
