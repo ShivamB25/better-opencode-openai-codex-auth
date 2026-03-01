@@ -6,28 +6,28 @@ This file provides coding guidance for AI agents (including Claude Code, Codex, 
 
 This is an **opencode plugin** that enables OAuth authentication with OpenAI's ChatGPT Plus/Pro Codex backend. It allows users to access `gpt-5.3-codex`, `gpt-5.3`, `gpt-5.2-codex`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.2`, and `gpt-5.1` models through their ChatGPT subscription instead of using OpenAI Platform API credits. Legacy GPT-5.0 models are automatically normalized to their GPT-5.1 equivalents.
 
-**Key architecture principle**: 7-step fetch flow that intercepts opencode's OpenAI SDK requests, transforms them for the ChatGPT backend API, and handles OAuth token management.
+**Key architecture principle**: 6-step fetch flow that intercepts opencode's OpenAI SDK requests, transforms them for the ChatGPT backend API, and handles OAuth token management per account.
 
 ## Build & Test Commands
 
 ```bash
 # Build (compiles TypeScript + copies HTML file)
-npm run build
+bun run build
 
 # Type checking only (no build)
-npm run typecheck
+bun run typecheck
 
 # Run all tests
-npm test
+bun run test
 
 # Watch mode for TDD
-npm run test:watch
+bun run test:watch
 
 # Interactive test UI
-npm run test:ui
+bun run test:ui
 
 # Coverage report
-npm run test:coverage
+bun run test:coverage
 ```
 
 **Important**: The build script has a critical step that copies `lib/oauth-success.html` to `dist/lib/`. This HTML file is required for the OAuth callback flow.

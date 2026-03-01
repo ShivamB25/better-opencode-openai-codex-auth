@@ -388,8 +388,8 @@ For plugin development or testing unreleased changes:
 **Build the plugin:**
 ```bash
 cd opencode-openai-codex-auth
-npm install
-npm run build
+bun install
+bun run build
 ```
 
 ---
