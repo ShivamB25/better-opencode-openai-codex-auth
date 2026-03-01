@@ -159,7 +159,7 @@ OAuth implementation follows OpenAI Codex CLI patterns:
 
 ### Testing Strategy
 
-- **191 comprehensive tests** covering all modules
+- **247 comprehensive tests** covering all modules
 - Test files mirror source structure (`test/auth.test.ts` ↔ `lib/auth/auth.ts`)
 - Mock-heavy testing (no actual network calls or file I/O in tests)
 - Focus on edge cases: token expiration, model normalization, input filtering, CODEX_MODE toggling
