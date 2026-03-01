@@ -1,0 +1,82 @@
+.github/workflows/ci.yml
+  1d95dc3be2304114 11,18-19,21,24,27,30,33,43-44,46,49,52
+AGENTS.md
+  735b210f65df4760 9,15,18,21,24,27,30
+package.json
+  0822b752ad548a87 53,71
+  1f50c5d19a1f2f2e 50,67
+docs/getting-started.md
+  8f6ebcc252842203 391-392
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.6",
+  "base_commit_sha": "fa5fbb9ef0f60ff3c2d1888facdc6371cf3c1310",
+  "prompts": {
+    "0822b752ad548a87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_35969af1effedV2KpUhZKza0cH-d934d337-2527-4ef7-912d-d076059a2c54",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "1d95dc3be2304114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_35969af1effedV2KpUhZKza0cH-75cf2039-f8c8-4cfb-ace9-7f24930369a4",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 13,
+      "total_deletions": 19,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    },
+    "1f50c5d19a1f2f2e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_35969af1effedV2KpUhZKza0cH-48b4cb24-84a4-4688-af20-37ab06ba0104",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 1,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "735b210f65df4760": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_35969af1effedV2KpUhZKza0cH-6ba9af0a-9ab8-436f-88f5-192685aa73fb",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 7,
+      "total_deletions": 7,
+      "accepted_lines": 7,
+      "overriden_lines": 0
+    },
+    "8f6ebcc252842203": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_35969af1effedV2KpUhZKza0cH-05cc877a-39ba-4df2-9ce4-25bade5b2d62",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
