@@ -22,7 +22,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # Required for npm Trusted Publishing (OIDC)
+  # Note: id-token not needed for NPM_TOKEN auth
 
 jobs:
   publish-beta:
@@ -41,9 +41,6 @@ jobs:
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
-
-      - name: Upgrade npm for OIDC support
-        run: npm install -g npm@11.5.1
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -88,7 +85,7 @@ jobs:
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             pkg.version = '$DEV_VERSION';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\\n');
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
           echo "Updated package.json to version $DEV_VERSION"
           cat package.json | grep '"version"'
@@ -107,10 +104,10 @@ jobs:
           echo "Publishing with npm tag: $TAG"
 
       - name: Publish to npm with beta tag
-        run: npm publish --tag ${{ steps.npm_tag.outputs.tag }} --provenance --access public
+        run: npm publish --tag ${{ steps.npm_tag.outputs.tag }} --access public
         env:
-          # Explicitly empty to force OIDC authentication
-          NODE_AUTH_TOKEN: ""
+          # Using NPM_TOKEN for beta releases (OIDC only works for publish.yml)
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Output installation command
         run: |
