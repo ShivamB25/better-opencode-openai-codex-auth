@@ -1,0 +1,39 @@
+lib/prompts/codex.ts
+  4df7a6367b067910 107
+  57e879f0f31de6e6 234,237
+lib/request/request-transformer.ts
+  44832c96f09f59d6 2,210,212,218,224-231,236,239-241,275
+lib/account-pool.ts
+  bd5e20b942f13dac 138-141
+  f3506944fed778de 66,69
+lib/constants.ts
+  73b4a87546f5459a 82-102
+lib/auth/server.ts
+  b5515c3c505bb5f0 84
+  89111ba53920453b 6,41-42,50,52,56-57,68,73,78-79
+lib/request/fetch-helpers.ts
+  ef89e81a5ce06aac 22,259,266
+lib/auth/auth.ts
+  114f86ad2e45316f 76,89,111-118,144,160,172-173
+lib/request/helpers/input-utils.ts
+  d18b6d3647460df5 2,118-122,130-131,136,139-140,142-143
+index.ts
+  d2712892350e0055 288
+  35abf678d9954bb2 60-83
+  f5f98bd3e4cae60f 356
+  78bd08ad1b4c711b 215
+  c8d14e248d6ca3c5 218-219,221
+lib/logger.ts
+  c06172d1791f9402 56-57
+lib/request/response-handler.ts
+  45325aded01c9bc4 26-28,31-32,34
+  378ad84a413290d9 2,98,103,106,110-116,130,160
+lib/config.ts
+  1b000794bcf1929b 29,39-53,55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "8a330ad68481fd831d669080fe94af920f38219a",
+  "prompts": {}
+}
