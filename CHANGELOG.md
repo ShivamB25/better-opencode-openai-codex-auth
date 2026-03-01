@@ -62,7 +62,7 @@ All notable changes to this project are documented here. Dates use the ISO forma
 ### Changed
 - **Prompt selection alignment**: GPT 5.2 general now uses `gpt_5_2_prompt.md` (Codex CLI parity).
 - **Reasoning configuration**: GPT 5.2 Codex supports `xhigh` but does **not** support `"none"`; `"none"` auto-upgrades to `"low"` and `"minimal"` normalizes to `"low"`.
-- **Config presets**: `config/opencode-legacy.json` includes the 22 pre-configured presets (adds GPT 5.2 Codex); `config/opencode-modern.json` provides the variant-based setup.
+- **Config presets**: `config/opencode-legacy.json` includes 33 pre-configured presets; `config/opencode-modern.json` provides the variant-based setup.
 - **Docs**: Updated README/AGENTS/config docs to include GPT 5.2 Codex and new model family behavior.
 
 ## [4.1.1] - 2025-12-17

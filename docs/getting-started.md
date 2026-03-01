@@ -261,6 +261,17 @@ Add this to `~/.config/opencode/opencode.jsonc` (or `.json`):
 ```
 
   **What you get:**
+  - ✅ GPT 5.3 (None/Low/Medium/High/xHigh reasoning)
+  - ✅ GPT 5.3 Codex (Low/Medium/High/xHigh reasoning)
+  - ✅ GPT 5.2 (None/Low/Medium/High/xHigh reasoning)
+  - ✅ GPT 5.2 Codex (Low/Medium/High/xHigh reasoning)
+  - ✅ GPT 5.1 Codex Max (Low/Medium/High/xHigh reasoning presets)
+  - ✅ GPT 5.1 Codex (Low/Medium/High reasoning)
+  - ✅ GPT 5.1 Codex Mini (Medium/High reasoning)
+  - ✅ GPT 5.1 (None/Low/Medium/High reasoning)
+  - ✅ 272k context + 128k output window for all GPT 5.x presets.
+  - ✅ All visible in OpenCode model selector
+  - ✅ Optimal settings for each reasoning level
   - ✅ GPT 5.2 (None/Low/Medium/High/xHigh reasoning)
   - ✅ GPT 5.2 Codex (Low/Medium/High/xHigh reasoning)
   - ✅ GPT 5.1 Codex Max (Low/Medium/High/xHigh reasoning presets)
