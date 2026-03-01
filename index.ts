@@ -18,8 +18,8 @@
  * For production applications, use the OpenAI Platform API: https://platform.openai.com/
  *
  * @license MIT with Usage Disclaimer (see LICENSE file)
- * @author numman-ali
- * @repository https://github.com/numman-ali/opencode-openai-codex-auth
+ * @author ShivamB25 (fork maintainer); originally by numman-ali
+ * @repository https://github.com/ShivamB25/better-opencode-openai-codex-auth
  */
 
 import type { Plugin, PluginInput } from "@opencode-ai/plugin";
@@ -67,7 +67,7 @@ import { AccountPool } from "./lib/account-pool.js";
  * @example
  * ```json
  * {
- *   "plugin": ["opencode-openai-codex-auth"],
+ *   "plugin": ["better-opencode-openai-codex-auth"],
  *   "model": "openai/gpt-5-codex"
  * }
  * ```

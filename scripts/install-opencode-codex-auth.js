@@ -7,7 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { parse, modify, applyEdits, printParseErrorCode } from "jsonc-parser";
 
-const PLUGIN_NAME = "opencode-openai-codex-auth";
+const PLUGIN_NAME = "better-opencode-openai-codex-auth";
 const args = new Set(process.argv.slice(2));
 
 if (args.has("--help") || args.has("-h")) {

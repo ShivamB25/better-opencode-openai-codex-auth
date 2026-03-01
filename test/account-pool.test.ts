@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { AccountPool } from "../lib/account-pool.js";
 
-const testPath = join(tmpdir(), "opencode-openai-codex-auth-account-pool-test.json");
+const testPath = join(tmpdir(), "better-opencode-openai-codex-auth-account-pool-test.json");
 
 function cleanup(): void {
 	if (existsSync(testPath)) {

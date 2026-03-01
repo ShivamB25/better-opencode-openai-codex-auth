@@ -1,15 +1,15 @@
 {
-  "name": "opencode-openai-codex-auth",
+  "name": "better-opencode-openai-codex-auth",
   "version": "4.4.0",
   "description": "OpenAI ChatGPT (Codex backend) OAuth auth plugin for opencode - use your ChatGPT Plus/Pro subscription instead of API credits",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module",
   "license": "MIT",
-  "author": "Numman Ali",
+  "author": "ShivamB25",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/numman-ali/opencode-openai-codex-auth.git"
+    "url": "git+https://github.com/ShivamB25/better-opencode-openai-codex-auth.git"
   },
   "keywords": [
     "opencode",
@@ -23,9 +23,9 @@
     "chatgpt-plus",
     "chatgpt-pro"
   ],
-  "homepage": "https://github.com/numman-ali/opencode-openai-codex-auth#readme",
+  "homepage": "https://github.com/ShivamB25/better-opencode-openai-codex-auth#readme",
   "bugs": {
-    "url": "https://github.com/numman-ali/opencode-openai-codex-auth/issues"
+    "url": "https://github.com/ShivamB25/better-opencode-openai-codex-auth/issues"
   },
   "scripts": {
     "build": "tsc && cp lib/oauth-success.html dist/lib/",
@@ -36,7 +36,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "bin": {
-    "opencode-openai-codex-auth": "./scripts/install-opencode-codex-auth.js"
+    "better-opencode-openai-codex-auth": "./scripts/install-opencode-codex-auth.js"
   },
   "files": [
     "dist/",
