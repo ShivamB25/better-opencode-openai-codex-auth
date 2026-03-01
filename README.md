@@ -52,6 +52,30 @@ bunx better-opencode-openai-codex-auth@latest --uninstall --all
 
 ---
 
+## Beta/Dev Versions
+
+Test the latest features from the `dev` branch before they're released:
+
+```bash
+# Install latest dev version
+bun add better-opencode-openai-codex-auth@dev
+
+# Or install latest beta
+bun add better-opencode-openai-codex-auth@beta
+```
+
+**Available tags:**
+- `@dev` - Latest commit from `dev` branch (auto-published on every push)
+- `@beta` - Beta releases for testing
+- `@preview` - Preview builds for specific branches
+
+To test a specific dev version:
+```bash
+bunx better-opencode-openai-codex-auth@dev
+```
+
+---
+
 ## Models
 
 - **gpt-5.3** (none/low/medium/high/xhigh)

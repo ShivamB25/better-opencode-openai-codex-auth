@@ -1,0 +1,126 @@
+name: Publish Beta/Dev Package
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'npm tag to publish'
+        required: true
+        default: 'beta'
+        type: choice
+        options:
+          - beta
+          - dev
+          - canary
+      version_suffix:
+        description: 'Version suffix (e.g., dev.1, beta.2). Leave empty for auto timestamp'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  id-token: write # Required for npm Trusted Publishing (OIDC)
+
+jobs:
+  publish-beta:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "latest"
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Upgrade npm for OIDC support
+        run: npm install -g npm@11.5.1
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Test
+        run: bun run test
+
+      - name: Configure git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Determine version suffix
+        id: version
+        run: |
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          
+          if [ -n "${{ github.event.inputs.version_suffix }}" ]; then
+            # Use provided suffix
+            SUFFIX="${{ github.event.inputs.version_suffix }}"
+          else
+            # Generate timestamp-based suffix
+            SUFFIX="dev.$(date +%Y%m%d%H%M%S)"
+          fi
+          
+          DEV_VERSION="${BASE_VERSION}-${SUFFIX}"
+          echo "dev_version=$DEV_VERSION" >> $GITHUB_OUTPUT
+          echo "Base version: $BASE_VERSION"
+          echo "Dev version: $DEV_VERSION"
+
+      - name: Update package.json version
+        run: |
+          DEV_VERSION="${{ steps.version.outputs.dev_version }}"
+          # Update version in package.json without creating a git tag
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$DEV_VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\\n');
+          "
+          echo "Updated package.json to version $DEV_VERSION"
+          cat package.json | grep '"version"'
+
+      - name: Determine npm tag
+        id: npm_tag
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          elif [ "${{ github.ref }}" == "refs/heads/dev" ]; then
+            TAG="dev"
+          else
+            TAG="beta"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Publishing with npm tag: $TAG"
+
+      - name: Publish to npm with beta tag
+        run: npm publish --tag ${{ steps.npm_tag.outputs.tag }} --provenance --access public
+        env:
+          # Explicitly empty to force OIDC authentication
+          NODE_AUTH_TOKEN: ""
+
+      - name: Output installation command
+        run: |
+          echo ""
+          echo "✅ Published successfully!"
+          echo ""
+          echo "Install with:"
+          echo "  bun add better-opencode-openai-codex-auth@${{ steps.npm_tag.outputs.tag }}"
+          echo "  npm install better-opencode-openai-codex-auth@${{ steps.npm_tag.outputs.tag }}"
+          echo ""
+          echo "Or use the specific version:"
+          echo "  bun add better-opencode-openai-codex-auth@${{ steps.version.outputs.dev_version }}"
+          echo ""
