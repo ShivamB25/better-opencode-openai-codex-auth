@@ -1,4 +1,5 @@
 import { logRequest, LOGGING_ENABLED } from "../logger.js";
+import { SIZE_LIMITS, PLUGIN_NAME } from "../constants.js";
 import type { SSEEventData } from "../types.js";
 
 /**
@@ -22,23 +23,15 @@ function parseSseStream(sseText: string): {
 	 */
 	const processEvent = (parsed: SSEEventData) => {
 		lastEvent = parsed;
-		const parsedAny = parsed as unknown as {
-			type?: string;
-			response?: unknown;
-		};
-		if (
-			parsedAny &&
-			typeof parsedAny === "object" &&
-			"response" in parsedAny
-		) {
-			if (parsedAny.response !== undefined) {
-				lastResponseLike = parsedAny.response;
+		if ("response" in parsed) {
+			if (parsed.response !== undefined) {
+				lastResponseLike = parsed.response;
 			}
 			if (
-				parsedAny.type === "response.done" ||
-				parsedAny.type === "response.completed"
+				parsed.type === "response.done" ||
+				parsed.type === "response.completed"
 			) {
-				finalResponse = parsedAny.response;
+				finalResponse = parsed.response;
 			}
 		}
 	};
@@ -102,17 +95,25 @@ function parseSseStream(sseText: string): {
  */
 export async function convertSseToJson(response: Response, headers: Headers): Promise<Response> {
 	if (!response.body) {
-		throw new Error('[openai-codex-plugin] Response has no body');
+		throw new Error(`[${PLUGIN_NAME}] Response has no body`);
 	}
 	const reader = response.body.getReader();
 	const decoder = new TextDecoder();
 	let fullText = '';
+	let totalBytes = 0;
 
 	try {
-		// Consume the entire stream
+		// Consume the entire stream with size limit protection
 		while (true) {
 			const { done, value } = await reader.read();
 			if (done) break;
+			totalBytes += value.byteLength;
+			if (totalBytes > SIZE_LIMITS.MAX_SSE_STREAM_BYTES) {
+				reader.cancel();
+				throw new Error(
+					`[${PLUGIN_NAME}] SSE stream exceeded ${SIZE_LIMITS.MAX_SSE_STREAM_BYTES} bytes limit`,
+				);
+			}
 			fullText += decoder.decode(value, { stream: true });
 		}
 
@@ -126,7 +127,7 @@ export async function convertSseToJson(response: Response, headers: Headers): Pr
 			parsed.finalResponse ?? parsed.lastResponseLike ?? parsed.lastEvent;
 
 		if (!responsePayload) {
-			console.error("[openai-codex-plugin] Could not find JSON in SSE stream");
+			console.error(`[${PLUGIN_NAME}] Could not find JSON in SSE stream`);
 			logRequest("stream-error", {
 				error: "No JSON events found in SSE stream",
 			});
@@ -156,7 +157,7 @@ export async function convertSseToJson(response: Response, headers: Headers): Pr
 		});
 
 	} catch (error) {
-		console.error('[openai-codex-plugin] Error converting stream:', error);
+		console.error(`[${PLUGIN_NAME}] Error converting stream:`, error);
 		logRequest("stream-error", { error: String(error) });
 		throw error;
 	}

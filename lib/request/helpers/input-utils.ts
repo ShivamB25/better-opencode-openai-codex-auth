@@ -1,4 +1,5 @@
 import type { InputItem } from "../../types.js";
+import { SIZE_LIMITS } from "../../constants.js";
 
 const OPENCODE_PROMPT_SIGNATURES = [
 	"you are a coding agent running in the opencode",
@@ -114,10 +115,11 @@ export function filterOpenCodeSystemPromptsWithCachedPrompt(
 }
 
 const getCallId = (item: InputItem): string | null => {
-	const rawCallId = (item as { call_id?: unknown }).call_id;
-	if (typeof rawCallId !== "string") return null;
-	const trimmed = rawCallId.trim();
-	return trimmed.length > 0 ? trimmed : null;
+	if ("call_id" in item && typeof item.call_id === "string") {
+		const trimmed = item.call_id.trim();
+		return trimmed.length > 0 ? trimmed : null;
+	}
+	return null;
 };
 
 const convertOrphanedOutputToMessage = (
@@ -125,19 +127,20 @@ const convertOrphanedOutputToMessage = (
 	callId: string | null,
 ): InputItem => {
 	const toolName =
-		typeof (item as { name?: unknown }).name === "string"
-			? ((item as { name?: string }).name as string)
+		"name" in item && typeof item.name === "string"
+			? item.name
 			: "tool";
 	const labelCallId = callId ?? "unknown";
 	let text: string;
 	try {
-		const out = (item as { output?: unknown }).output;
+		const out = "output" in item ? item.output : undefined;
 		text = typeof out === "string" ? out : JSON.stringify(out);
 	} catch {
-		text = String((item as { output?: unknown }).output ?? "");
+		const out = "output" in item ? item.output : "";
+		text = String(out ?? "");
 	}
-	if (text.length > 16000) {
-		text = text.slice(0, 16000) + "\n...[truncated]";
+	if (text.length > SIZE_LIMITS.MAX_TOOL_OUTPUT_LENGTH) {
+		text = text.slice(0, SIZE_LIMITS.MAX_TOOL_OUTPUT_LENGTH) + "\n...[truncated]";
 	}
 	return {
 		type: "message",

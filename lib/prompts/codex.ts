@@ -104,6 +104,7 @@ async function getLatestReleaseTag(): Promise<string> {
 			}
 		}
 	} catch {
+		// API fetch failed — fall through to HTML scraping fallback below
 	}
 
 	const htmlResponse = await fetch(GITHUB_HTML_RELEASES);
@@ -230,10 +231,10 @@ export async function getCodexInstructions(
 
 		throw new Error(`HTTP ${response.status}`);
 	} catch (error) {
-		const err = error as Error;
+		const errMessage = error instanceof Error ? error.message : String(error);
 		console.error(
 			`[openai-codex-plugin] Failed to fetch ${modelFamily} instructions from GitHub:`,
-			err.message,
+			errMessage,
 		);
 
 		// Try to use cached version even if stale

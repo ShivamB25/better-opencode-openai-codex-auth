@@ -79,3 +79,24 @@ export const AUTH_LABELS = {
 	INSTRUCTIONS_MANUAL:
 		"After logging in, copy the full redirect URL and paste it here.",
 } as const;
+
+/** OAuth callback server configuration */
+export const OAUTH_SERVER = {
+	/** Polling interval in milliseconds when waiting for OAuth callback */
+	POLL_INTERVAL_MS: 100,
+	/** Maximum number of polling iterations (600 × 100ms = 60 seconds) */
+	MAX_POLL_ITERATIONS: 600,
+	/** Port for local OAuth callback server */
+	PORT: 1455,
+} as const;
+
+/** Stream and output size limits */
+export const SIZE_LIMITS = {
+	/** Maximum SSE stream size in bytes before rejecting (50MB) */
+	MAX_SSE_STREAM_BYTES: 50 * 1024 * 1024,
+	/** Maximum tool output length in characters before truncation */
+	MAX_TOOL_OUTPUT_LENGTH: 16_000,
+} as const;
+
+/** Regex pattern for detecting usage limit errors in API responses */
+export const USAGE_LIMIT_PATTERN = /usage_limit_reached|usage_not_included|rate_limit_exceeded|usage limit/i;

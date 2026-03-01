@@ -19,6 +19,7 @@ import {
 	URL_PATHS,
 	ERROR_MESSAGES,
 	LOG_STAGES,
+	USAGE_LIMIT_PATTERN,
 } from "../constants.js";
 
 /**
@@ -255,14 +256,14 @@ async function mapUsageLimit404(response: Response): Promise<Response | null> {
 
 	let code = "";
 	try {
-		const parsed = JSON.parse(text) as any;
+		const parsed = JSON.parse(text) as { error?: { code?: string; type?: string } };
 		code = (parsed?.error?.code ?? parsed?.error?.type ?? "").toString();
 	} catch {
 		code = "";
 	}
 
 	const haystack = `${code} ${text}`.toLowerCase();
-	if (!/usage_limit_reached|usage_not_included|rate_limit_exceeded|usage limit/i.test(haystack)) {
+	if (!USAGE_LIMIT_PATTERN.test(haystack)) {
 		return null;
 	}
 
