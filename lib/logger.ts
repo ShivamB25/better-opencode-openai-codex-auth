@@ -86,3 +86,13 @@ export function logWarn(message: string, data?: unknown): void {
 		console.warn(`[${PLUGIN_NAME}] ${message}`);
 	}
 }
+
+/**
+ * Log error (always enabled for errors)
+ * @param message - Error message
+ * @param error - Error object or data to log
+ */
+export function logError(message: string, error?: unknown): void {
+	const errorMessage = error instanceof Error ? error.message : String(error);
+	console.error(`[${PLUGIN_NAME}] ${message}`, errorMessage);
+}

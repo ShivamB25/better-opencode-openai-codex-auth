@@ -33,7 +33,9 @@ export function normalizeModel(model: string | undefined): string {
 	if (!model) return "gpt-5.1";
 
 	// Strip provider prefix if present (e.g., "openai/gpt-5-codex" → "gpt-5-codex")
-	const modelId = model.includes("/") ? model.split("/").pop()! : model;
+	// Strip provider prefix if present (e.g., "openai/gpt-5-codex" → "gpt-5-codex")
+	const parts = model.split("/");
+	const modelId = parts[parts.length - 1] ?? model;
 
 	// Try explicit model map first (handles all known model variants)
 	const mappedModel = getNormalizedModel(modelId);

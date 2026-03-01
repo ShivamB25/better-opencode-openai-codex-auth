@@ -100,3 +100,11 @@ export const SIZE_LIMITS = {
 
 /** Regex pattern for detecting usage limit errors in API responses */
 export const USAGE_LIMIT_PATTERN = /usage_limit_reached|usage_not_included|rate_limit_exceeded|usage limit/i;
+
+/** Cache TTL configuration */
+export const CACHE_TTL = {
+	/** GitHub cache time-to-live in minutes */
+	MINUTES: 15,
+	/** GitHub cache time-to-live in milliseconds (15 minutes) */
+	MS: 15 * 60 * 1000,
+} as const;
