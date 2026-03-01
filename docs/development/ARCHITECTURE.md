@@ -4,13 +4,15 @@ This document explains the technical design decisions, architecture, and impleme
 
 ## Table of Contents
 - [Architecture Overview](#architecture-overview)
+- [Multi-Account Pool](#multi-account-pool)
 - [Stateless vs Stateful Mode](#stateless-vs-stateful-mode)
-- [Message ID Handling](#message-id-handling)
+- [Message ID Handling](#message-id-handling--ai-sdk-compatibility)
 - [Reasoning Content Flow](#reasoning-content-flow)
 - [Request Pipeline](#request-pipeline)
 - [Comparison with Codex CLI](#comparison-with-codex-cli)
 - [Design Rationale](#design-rationale)
-
+- [Error Handling](#error-handling)
+- [Performance Considerations](#performance-considerations)
 ---
 
 ## Architecture Overview
@@ -36,6 +38,7 @@ This document explains the technical design decisions, architecture, and impleme
 ┌──────────────────────────────┐
 │  This Plugin                 │
 │  - OAuth authentication      │
+│  - Account pool (optional)   │
 │  - Request transformation    │
 │  - store:false handling      │
 │  - Codex bridge prompts      │
@@ -332,8 +335,9 @@ let include: Vec<String> = if reasoning.is_some() {
 | **OpenCode Prompt Filtering** | N/A | ✅ Filter & replace | Remove OpenCode prompts, keep env/AGENTS |
 | **Orphan Tool Output Handling** | ✅ Drop orphans | ✅ Convert to messages | Preserve context + avoid 400s |
 | **Usage-limit messaging** | CLI prints status | ✅ Friendly error summary | Surface 5h/weekly windows in OpenCode |
-| **Per-Model Options** | CLI flags | ✅ Config file | Better UX in OpenCode |
-| **Custom Model Names** | No | ✅ Display names | UI convenience |
+|| **Per-Model Options** | CLI flags | ✅ Config file | Better UX in OpenCode |
+|| **Custom Model Names** | No | ✅ Display names | UI convenience |
+|| **Multi-Account Pool** | N/A | ✅ Round-robin/sticky selection | Automatic rotation on 429s |
 
 ---
 
@@ -404,6 +408,124 @@ let include: Vec<String> = if reasoning.is_some() {
 - ✅ Persistent across sessions
 
 **Source**: `config/opencode-legacy.json` (legacy) or `config/opencode-modern.json` (variants)
+
+---
+
+## Multi-Account Pool
+
+Multiple ChatGPT accounts can be pooled for automatic rotation when rate limits are hit. This is useful for users with access to multiple ChatGPT Plus/Pro subscriptions.
+
+### Account Pool Storage
+
+**Location**: `~/.opencode/openai-codex-accounts.json`
+
+```json
+{
+  "version": 1,
+  "activeIndex": 0,
+  "accounts": [
+    {
+      "accountId": "user-123",
+      "access": "eyJ...",
+      "refresh": "eyJ...",
+      "expires": 1704067200000,
+      "email": "user@example.com",
+      "lastUsed": 1704063600000,
+      "rateLimitedUntil": 0
+    }
+  ]
+}
+```
+
+**Fields**:
+- `accountId`: ChatGPT account identifier (from JWT)
+- `access`/`refresh`: OAuth tokens
+- `expires`: Access token expiration (Unix ms)
+- `email`: Optional account email for display
+- `lastUsed`: Timestamp of last request
+- `rateLimitedUntil`: Cooldown timestamp after 429 response
+
+### Selection Strategies
+
+**Round-Robin** (default):
+```
+Account A → Account B → Account C → Account A...
+```
+Cycles through available accounts, skipping rate-limited ones.
+
+**Sticky**:
+```
+Account A → Account A (if available) → Account B (if A rate-limited)
+```
+Prefers the current account; only switches on 429 or auth failure.
+
+### Per-Account Token Refresh
+
+Each account manages its own token lifecycle:
+
+```typescript
+for (const account of pool) {
+  if (account.expires < Date.now()) {
+    const refreshed = await refreshAccessToken(account.refresh);
+    if (refreshed.failed) {
+      // Auth failure: skip this account (NOT rate-limited)
+      continue;
+    }
+    pool.update(account.id, refreshed);
+  }
+}
+```
+
+**Key distinction**: Auth failures skip the account without marking it rate-limited. A dead token shouldn't trigger a cooldown.
+
+### 429 Handling & Rotation
+
+When an account hits rate limits:
+
+```typescript
+if (response.status === 429) {
+  // Extract retry-after from headers
+  const cooldown = retryAfterFromHeaders(headers, 60000);
+  pool.markRateLimited(account.id, cooldown);
+  pool.save();
+  
+  // Try next account
+  continue;
+}
+```
+
+**Retry-After Sources** (in order):
+1. `retry-after-ms` header (milliseconds)
+2. `retry-after` header (seconds or HTTP-date)
+3. `x-codex-primary-reset-after-seconds` header
+4. Configurable fallback (default: 60s)
+
+### Pool Persistence
+
+The pool is persisted to disk on every request state change:
+
+```typescript
+// Atomic write: temp file → rename → chmod 600
+save(): void {
+  const tempPath = `${storagePath()}.${randomUUID()}.tmp`;
+  writeFileSync(tempPath, JSON.stringify(data));
+  chmodSync(tempPath, 0o600);
+  renameSync(tempPath, storagePath());
+}
+```
+
+**Security**: File permissions set to `0o600` (owner read/write only) since it contains OAuth tokens.
+
+### Configuration
+
+Enable via plugin config:
+
+```json
+{
+  "accountSelectionStrategy": "round-robin",  // or "sticky"
+  "rateLimitCooldownMs": 60000
+}
+```
 
 ---
 
