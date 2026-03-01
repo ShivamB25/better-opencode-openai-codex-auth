@@ -1,0 +1,23 @@
+docs/configuration.md
+  41a11cca550e50c5 49-61,92-93,95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.7",
+  "base_commit_sha": "49e770d5e63f9e379fc46dabccf539d2abb45f56",
+  "prompts": {
+    "41a11cca550e50c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "opencode-transcript-ses_35969af1effedV2KpUhZKza0cH-676fb381-16a5-4291-b1c9-58c3cd7280b4",
+        "model": "unknown"
+      },
+      "human_author": "shivam bansal <shivamban30@gmail.com>",
+      "messages": [],
+      "total_additions": 16,
+      "total_deletions": 4,
+      "accepted_lines": 16,
+      "overriden_lines": 0
+    }
+  }
+}
