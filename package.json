@@ -55,16 +55,16 @@
     "@opencode-ai/plugin": "^1.0.150"
   },
   "devDependencies": {
-    "@opencode-ai/plugin": "^1.0.150",
-    "@opencode-ai/sdk": "^1.0.150",
-    "@types/node": "^25.3.3",
+    "@opencode-ai/plugin": "^1.2.18",
+    "@opencode-ai/sdk": "^1.2.18",
+    "@types/node": "^25.3.4",
     "@vitest/ui": "^4.0.18",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },
   "dependencies": {
     "@openauthjs/openauth": "^0.4.3",
-    "hono": "^4.12.3",
+    "hono": "^4.12.5",
     "jsonc-parser": "^3.3.1",
     "zod": "^4.3.6"
   },
