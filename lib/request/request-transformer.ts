@@ -49,6 +49,18 @@ export function normalizeModel(model: string | undefined): string {
 	const normalized = modelId.toLowerCase();
 
 	// Priority order for pattern matching (most specific first):
+	if (
+		normalized.includes("gpt-5.4-pro") ||
+		normalized.includes("gpt 5.4 pro")
+	) {
+		return "gpt-5.4-pro";
+	}
+
+
+	if (normalized.includes("gpt-5.4") || normalized.includes("gpt 5.4")) {
+		return "gpt-5.4";
+	}
+
 	// 1. GPT-5.3 Codex (newest codex model)
 	if (
 		normalized.includes("gpt-5.3-codex") ||
@@ -210,6 +222,7 @@ export function getReasoningConfig(
 ): ReasoningConfig {
 	const normalizedName = modelName?.toLowerCase() ?? "";
 	const family = getModelFamily(normalizedName || "gpt-5.1");
+	const isGpt54Pro = family === "gpt-5.4-pro";
 
 	// Codex-mini needs special handling (shares "codex" family but has different constraints)
 	const isCodexMini =
@@ -226,6 +239,8 @@ export function getReasoningConfig(
 	// Derive capabilities from model family (single source of truth via getModelFamily)
 	// GPT 5.3, GPT 5.2, GPT 5.2 Codex, GPT 5.3 Codex, and Codex Max support xhigh reasoning
 	const supportsXhigh =
+		family === "gpt-5.4-pro" ||
+		family === "gpt-5.4" ||
 		family === "gpt-5.3" ||
 		family === "gpt-5.3-codex" ||
 		family === "gpt-5.2" ||
@@ -238,6 +253,7 @@ export function getReasoningConfig(
 	// - gpt-5.2 and gpt-5.3 (being newer) also support: none, low, medium, high, xhigh
 	// - Codex models (including GPT-5.2 Codex and GPT-5.3 Codex) do NOT support "none"
 	const supportsNone =
+		(family === "gpt-5.4" && !isGpt54Pro) ||
 		family === "gpt-5.3" ||
 		family === "gpt-5.2" ||
 		family === "gpt-5.1";
@@ -283,6 +299,10 @@ export function getReasoningConfig(
 	// The ChatGPT Codex backend does not accept "minimal" (supports none/low/medium/high).
 	if (effort === "minimal") {
 		effort = "low";
+	}
+
+	if (isGpt54Pro && (effort === "none" || effort === "low")) {
+		effort = "medium";
 	}
 
 	return {

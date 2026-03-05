@@ -18,6 +18,8 @@ const __dirname = dirname(__filename);
  * Maps to different system prompts in the Codex CLI
  */
 export type ModelFamily =
+	| "gpt-5.4-pro"
+	| "gpt-5.4"
 	| "gpt-5.3-codex"
 	| "gpt-5.3"
 	| "gpt-5.2-codex"
@@ -31,6 +33,8 @@ export type ModelFamily =
  * Based on codex-rs/core/src/model_family.rs logic
  */
 const PROMPT_FILES: Record<ModelFamily, string> = {
+	"gpt-5.4-pro": "gpt_5_4_prompt.md",
+	"gpt-5.4": "gpt_5_4_prompt.md",
 	"gpt-5.3-codex": "gpt-5.3-codex_prompt.md",
 	"gpt-5.3": "gpt_5_3_prompt.md",
 	"gpt-5.2-codex": "gpt-5.2-codex_prompt.md",
@@ -44,6 +48,8 @@ const PROMPT_FILES: Record<ModelFamily, string> = {
  * Cache file mapping for each model family
  */
 const CACHE_FILES: Record<ModelFamily, string> = {
+	"gpt-5.4-pro": "gpt-5.4-instructions.md",
+	"gpt-5.4": "gpt-5.4-instructions.md",
 	"gpt-5.3-codex": "gpt-5.3-codex-instructions.md",
 	"gpt-5.3": "gpt-5.3-instructions.md",
 	"gpt-5.2-codex": "gpt-5.2-codex-instructions.md",
@@ -60,6 +66,18 @@ const CACHE_FILES: Record<ModelFamily, string> = {
  */
 export function getModelFamily(normalizedModel: string): ModelFamily {
 	// Order matters - check more specific patterns first
+	if (
+		normalizedModel.includes("gpt-5.4-pro") ||
+		normalizedModel.includes("gpt 5.4 pro")
+	) {
+		return "gpt-5.4-pro";
+	}
+	if (
+		normalizedModel.includes("gpt-5.4") ||
+		normalizedModel.includes("gpt 5.4")
+	) {
+		return "gpt-5.4";
+	}
 	if (
 		normalizedModel.includes("gpt-5.3-codex") ||
 		normalizedModel.includes("gpt 5.3 codex")
