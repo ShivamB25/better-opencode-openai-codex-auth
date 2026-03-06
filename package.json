@@ -55,9 +55,9 @@
     "@opencode-ai/plugin": "^1.0.150"
   },
   "devDependencies": {
-    "@opencode-ai/plugin": "^1.2.18",
-    "@opencode-ai/sdk": "^1.2.18",
-    "@types/node": "^25.3.4",
+    "@opencode-ai/plugin": "^1.2.19",
+    "@opencode-ai/sdk": "^1.2.19",
+    "@types/node": "^25.3.5",
     "@vitest/ui": "^4.0.18",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
