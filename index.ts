@@ -58,6 +58,31 @@ import type { RequestBody, UserConfig } from "./lib/types.js";
 import { AccountPool } from "./lib/account-pool.js";
 
 /**
+ * Build a 429 response when all accounts are rate-limited
+ * @param retryAfterMs - Minimum retry-after time from pool, or null
+ */
+function buildAllRateLimitedResponse(retryAfterMs: number | null): Response {
+	const retryAfterSeconds = retryAfterMs ? Math.max(1, Math.ceil(retryAfterMs / 1000)) : null;
+	return new Response(
+		JSON.stringify({
+			error: {
+				code: "usage_limit_reached",
+				message: "All ChatGPT accounts are temporarily rate-limited",
+			},
+		}),
+		{
+			status: 429,
+			headers: {
+				"content-type": "application/json",
+				...(retryAfterSeconds
+					? { "retry-after": String(retryAfterSeconds) }
+					: {}),
+			},
+		},
+	);
+}
+
+/**
  * OpenAI Codex OAuth authentication plugin for opencode
  *
  * This plugin enables opencode to use OpenAI's Codex backend via ChatGPT Plus/Pro
@@ -187,14 +212,13 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 						init?: RequestInit,
 					): Promise<Response> {
 						const latestAuth = await getAuth();
-						let latestAccountIdFromAuth: string | undefined;
+						let decodedAccountId: string | undefined;
 						if (latestAuth.type === "oauth") {
 							const latestDecoded = decodeJWT(latestAuth.access);
-							const latestAccountId = latestDecoded?.[JWT_CLAIM_PATH]?.chatgpt_account_id;
-							latestAccountIdFromAuth = latestAccountId;
-							if (latestAccountId) {
+							decodedAccountId = latestDecoded?.[JWT_CLAIM_PATH]?.chatgpt_account_id;
+							if (decodedAccountId) {
 								accountPool.upsert({
-									accountId: latestAccountId,
+									accountId: decodedAccountId,
 									access: latestAuth.access,
 									refresh: latestAuth.refresh,
 									expires: latestAuth.expires,
@@ -261,7 +285,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 								if (
 									latestAuth.type === "oauth" &&
 									(latestAuth.refresh === selectedRefreshBefore ||
-										latestAccountIdFromAuth === selected.accountId)
+										decodedAccountId === selected.accountId)
 								) {
 									try {
 										await client.auth.set({
@@ -329,25 +353,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 						if (lastRateLimitResponse) {
 							return lastRateLimitResponse;
 						}
-						const retryAfterMs = accountPool.getMinRetryAfterMs();
-						const retryAfterSeconds = retryAfterMs ? Math.max(1, Math.ceil(retryAfterMs / 1000)) : null;
-						return new Response(
-							JSON.stringify({
-								error: {
-									code: "usage_limit_reached",
-									message: "All ChatGPT accounts are temporarily rate-limited",
-								},
-							}),
-							{
-								status: 429,
-								headers: {
-									"content-type": "application/json",
-									...(retryAfterSeconds
-										? { "retry-after": String(retryAfterSeconds) }
-										: {}),
-								},
-							},
-						);
+						return buildAllRateLimitedResponse(accountPool.getMinRetryAfterMs());
 					},
 				};
 			},

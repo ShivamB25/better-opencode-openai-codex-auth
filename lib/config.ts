@@ -22,11 +22,11 @@ const DEFAULT_CONFIG: PluginConfig = {
  * @returns Plugin configuration
  */
 export function loadPluginConfig(): PluginConfig {
-	try {
-		if (!existsSync(CONFIG_PATH)) {
-			return DEFAULT_CONFIG;
-		}
+	if (!existsSync(CONFIG_PATH)) {
+		return DEFAULT_CONFIG;
+	}
 
+	try {
 		const fileContent = readFileSync(CONFIG_PATH, "utf-8");
 		const userConfig = JSON.parse(fileContent) as Partial<PluginConfig>;
 
@@ -36,10 +36,23 @@ export function loadPluginConfig(): PluginConfig {
 			...userConfig,
 		};
 	} catch (error) {
-		console.warn(
-			`[openai-codex-plugin] Failed to load config from ${CONFIG_PATH}:`,
-			(error as Error).message
-		);
+		const err = error instanceof Error ? error : new Error(String(error));
+		if (err.message.includes("EACCES") || err.message.includes("EPERM")) {
+			console.error(
+				`[openai-codex-plugin] Permission denied reading config from ${CONFIG_PATH}:`,
+				err.message,
+			);
+		} else if (err instanceof SyntaxError) {
+			console.warn(
+				`[openai-codex-plugin] Invalid JSON in config file ${CONFIG_PATH}:`,
+				err.message,
+			);
+		} else {
+			console.warn(
+				`[openai-codex-plugin] Failed to load config from ${CONFIG_PATH}:`,
+				err.message,
+			);
+		}
 		return DEFAULT_CONFIG;
 	}
 }

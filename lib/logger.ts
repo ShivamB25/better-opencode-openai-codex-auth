@@ -53,8 +53,8 @@ export function logRequest(stage: string, data: Record<string, unknown>): void {
 		);
 		console.log(`[${PLUGIN_NAME}] Logged ${stage} to ${filename}`);
 	} catch (e) {
-		const error = e as Error;
-		console.error(`[${PLUGIN_NAME}] Failed to write log:`, error.message);
+		const errMessage = e instanceof Error ? e.message : String(e);
+		console.error(`[${PLUGIN_NAME}] Failed to write log:`, errMessage);
 	}
 }
 
@@ -85,4 +85,14 @@ export function logWarn(message: string, data?: unknown): void {
 	} else {
 		console.warn(`[${PLUGIN_NAME}] ${message}`);
 	}
+}
+
+/**
+ * Log error (always enabled for errors)
+ * @param message - Error message
+ * @param error - Error object or data to log
+ */
+export function logError(message: string, error?: unknown): void {
+	const errorMessage = error instanceof Error ? error.message : String(error);
+	console.error(`[${PLUGIN_NAME}] ${message}`, errorMessage);
 }

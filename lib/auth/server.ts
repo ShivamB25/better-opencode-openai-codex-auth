@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { OAuthServerInfo } from "../types.js";
+import { OAUTH_SERVER, PLUGIN_NAME } from "../constants.js";
 
 // Resolve path to oauth-success.html (one level up from auth/ subfolder)
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -37,7 +38,8 @@ export function startLocalOAuthServer({ state }: { state: string }): Promise<OAu
 			res.setHeader("Content-Type", "text/html; charset=utf-8");
 			res.end(successHtml);
 			(server as http.Server & { _lastCode?: string })._lastCode = code;
-		} catch {
+		} catch (error) {
+			console.error(`[${PLUGIN_NAME}] OAuth callback handler error:`, error);
 			res.statusCode = 500;
 			res.end("Internal error");
 		}
@@ -45,14 +47,14 @@ export function startLocalOAuthServer({ state }: { state: string }): Promise<OAu
 
 	return new Promise((resolve) => {
 		server
-			.listen(1455, "127.0.0.1", () => {
+			.listen(OAUTH_SERVER.PORT, "127.0.0.1", () => {
 				resolve({
-					port: 1455,
+					port: OAUTH_SERVER.PORT,
 					ready: true,
 					close: () => server.close(),
 					waitForCode: async () => {
-						const poll = () => new Promise<void>((r) => setTimeout(r, 100));
-						for (let i = 0; i < 600; i++) {
+						const poll = () => new Promise<void>((r) => setTimeout(r, OAUTH_SERVER.POLL_INTERVAL_MS));
+						for (let i = 0; i < OAUTH_SERVER.MAX_POLL_ITERATIONS; i++) {
 							const lastCode = (server as http.Server & { _lastCode?: string })._lastCode;
 							if (lastCode) return { code: lastCode };
 							await poll();
@@ -63,20 +65,22 @@ export function startLocalOAuthServer({ state }: { state: string }): Promise<OAu
 			})
 			.on("error", (err: NodeJS.ErrnoException) => {
 				console.error(
-					"[openai-codex-plugin] Failed to bind http://127.0.0.1:1455 (",
+					`[${PLUGIN_NAME}] Failed to bind http://127.0.0.1:${OAUTH_SERVER.PORT} (`,
 					err?.code,
 					") Falling back to manual paste.",
 				);
 				resolve({
-					port: 1455,
+					port: OAUTH_SERVER.PORT,
 					ready: false,
 					close: () => {
 						try {
 							server.close();
-						} catch {}
+						} catch (closeErr) {
+							console.error(`[${PLUGIN_NAME}] Error closing server:`, closeErr);
+						}
 					},
 					waitForCode: async () => null,
-				});
 			});
+		});
 	});
 }
