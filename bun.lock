@@ -1,11 +1,12 @@
 {
   "lockfileVersion": 1,
+  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "opencode-openai-codex-auth",
       "dependencies": {
         "@openauthjs/openauth": "^0.4.3",
-        "hono": "^4.10.4",
+        "hono": "^4.12.3",
         "jsonc-parser": "^3.3.1",
       },
       "devDependencies": {
@@ -22,7 +23,7 @@
     },
   },
   "overrides": {
-    "hono": "^4.10.4",
+    "hono": "^4.12.3",
     "vite": "^7.1.12",
   },
   "packages": {
