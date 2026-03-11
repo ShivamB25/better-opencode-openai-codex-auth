@@ -12,7 +12,23 @@
  * Value: The normalized model name to send to the API
  */
 export const MODEL_MAP: Record<string, string> = {
-// ============================================================================
+	"gpt-5.4": "gpt-5.4",
+	"gpt-5.4-2026-03-05": "gpt-5.4",
+	"gpt-5.4-none": "gpt-5.4",
+	"gpt-5.4-low": "gpt-5.4",
+	"gpt-5.4-medium": "gpt-5.4",
+	"gpt-5.4-high": "gpt-5.4",
+	"gpt-5.4-xhigh": "gpt-5.4",
+
+	"gpt-5.4-pro": "gpt-5.4-pro",
+	"gpt-5.4-pro-2026-03-05": "gpt-5.4-pro",
+	"gpt-5.4-pro-none": "gpt-5.4-pro",
+	"gpt-5.4-pro-low": "gpt-5.4-pro",
+	"gpt-5.4-pro-medium": "gpt-5.4-pro",
+	"gpt-5.4-pro-high": "gpt-5.4-pro",
+	"gpt-5.4-pro-xhigh": "gpt-5.4-pro",
+
+
 // GPT-5.3 Models (supports none/low/medium/high/xhigh per OpenAI API docs)
 // ============================================================================
 	"gpt-5.3": "gpt-5.3",

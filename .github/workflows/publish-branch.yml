@@ -1,0 +1,107 @@
+name: Publish Branch Preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to publish'
+        required: true
+        default: 'dev'
+      tag:
+        description: 'npm tag'
+        required: true
+        default: 'preview'
+        type: choice
+        options:
+          - preview
+          - beta
+          - dev
+          - canary
+          - alpha
+
+permissions:
+  contents: read
+  id-token: write # Required for npm Trusted Publishing (OIDC)
+
+jobs:
+  publish-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "latest"
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Upgrade npm for OIDC support
+        run: npm install -g npm@11.5.1
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Test
+        run: bun run test
+
+      - name: Get version info
+        id: version
+        run: |
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          BRANCH="${{ github.event.inputs.branch }}"
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          PREVIEW_VERSION="${BASE_VERSION}-${BRANCH}.${SHORT_SHA}"
+          echo "preview_version=$PREVIEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Base version: $BASE_VERSION"
+          echo "Preview version: $PREVIEW_VERSION"
+
+      - name: Update package.json version
+        run: |
+          PREVIEW_VERSION="${{ steps.version.outputs.preview_version }}"
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '$PREVIEW_VERSION';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\\n');
+          "
+          echo "Updated package.json:"
+          cat package.json | grep '"version"'
+
+      - name: Publish to npm
+        run: npm publish --tag ${{ github.event.inputs.tag }} --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ""
+
+      - name: Output installation commands
+        run: |
+          echo ""
+          echo "✅ Published branch '${{ github.event.inputs.branch }}' successfully!"
+          echo ""
+          echo "📦 Version: ${{ steps.version.outputs.preview_version }}"
+          echo "🏷️  Tag: ${{ github.event.inputs.tag }}"
+          echo ""
+          echo "Install options:"
+          echo ""
+          echo "1. Using the tag (gets latest ${{ github.event.inputs.tag }}):"
+          echo "   bun add better-opencode-openai-codex-auth@${{ github.event.inputs.tag }}"
+          echo ""
+          echo "2. Using the exact version:"
+          echo "   bun add better-opencode-openai-codex-auth@${{ steps.version.outputs.preview_version }}"
+          echo ""
+          echo "3. Using npx/bunx directly:"
+          echo "   bunx better-opencode-openai-codex-auth@${{ github.event.inputs.tag }}"
+          echo ""

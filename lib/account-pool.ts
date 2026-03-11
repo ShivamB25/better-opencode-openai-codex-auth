@@ -63,10 +63,10 @@ function parseStorage(raw: string): AccountPoolStorage | null {
 }
 
 function normalizeCooldown(cooldownMs?: number): number {
-	if (!Number.isFinite(cooldownMs) || (cooldownMs as number) < 1000) {
+	if (cooldownMs === undefined || !Number.isFinite(cooldownMs) || cooldownMs < 1000) {
 		return DEFAULT_COOLDOWN_MS;
 	}
-	return Math.floor(cooldownMs as number);
+	return Math.floor(cooldownMs);
 }
 
 function retryAfterFromHeaders(headers: Headers, fallbackMs: number): number {
@@ -135,7 +135,11 @@ export class AccountPool {
 		renameSync(tempPath, path);
 		try {
 			chmodSync(path, 0o600);
-		} catch {
+		} catch (chmodErr) {
+			// chmod may fail on some platforms (e.g., Windows) - file was already created with 0o600 mode
+			if (process.platform !== "win32") {
+				console.warn(`[openai-codex-plugin] Failed to chmod ${path}:`, chmodErr);
+			}
 		}
 	}
 
