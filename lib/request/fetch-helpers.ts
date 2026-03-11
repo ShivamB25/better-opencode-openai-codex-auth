@@ -81,12 +81,28 @@ export function extractRequestUrl(input: Request | string | URL): string {
 }
 
 /**
- * Rewrites OpenAI API URLs to Codex backend URLs
+ * Rewrites OpenAI API URLs to Codex backend URLs.
+ * Handles both the Responses API path and the Chat Completions compat path (#7).
  * @param url - Original URL
  * @returns Rewritten URL for Codex backend
  */
 export function rewriteUrlForCodex(url: string): string {
-	return url.replace(URL_PATHS.RESPONSES, URL_PATHS.CODEX_RESPONSES);
+	// /v1/responses  or  /responses  → /codex/responses
+	if (url.includes(URL_PATHS.RESPONSES)) {
+		return url.replace(URL_PATHS.RESPONSES, URL_PATHS.CODEX_RESPONSES);
+	}
+	// /chat/completions (Chat Completions compat layer) → codex endpoint
+	if (url.includes(URL_PATHS.CHAT_COMPLETIONS)) {
+		try {
+			const parsed = new URL(url);
+			parsed.pathname = URL_PATHS.CODEX_RESPONSES;
+			return parsed.toString();
+		} catch {
+			// Fallback for relative paths
+			return url.replace(URL_PATHS.CHAT_COMPLETIONS, URL_PATHS.CODEX_RESPONSES);
+		}
+	}
+	return url;
 }
 
 /**
@@ -186,11 +202,14 @@ export function createCodexHeaders(
 
     const cacheKey = opts?.promptCacheKey;
     if (cacheKey) {
+        // Use prompt_cache_key for both conversation and session tracking
         headers.set(OPENAI_HEADERS.CONVERSATION_ID, cacheKey);
         headers.set(OPENAI_HEADERS.SESSION_ID, cacheKey);
     } else {
+        // No explicit cache key — remove conversation_id but preserve session_id
+        // if it was already injected by the chat.headers hook (#4: platform session ID)
         headers.delete(OPENAI_HEADERS.CONVERSATION_ID);
-        headers.delete(OPENAI_HEADERS.SESSION_ID);
+        // session_id is left as-is (may have been set to input.sessionID by chat.headers hook)
     }
     headers.set("accept", "text/event-stream");
     return headers;

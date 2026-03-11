@@ -4,9 +4,9 @@ This file provides coding guidance for AI agents (including Claude Code, Codex, 
 
 ## Overview
 
-This is an **opencode plugin** that enables OAuth authentication with OpenAI's ChatGPT Plus/Pro Codex backend. It allows users to access `gpt-5.3-codex`, `gpt-5.3`, `gpt-5.2-codex`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.2`, and `gpt-5.1` models through their ChatGPT subscription instead of using OpenAI Platform API credits. Legacy GPT-5.0 models are automatically normalized to their GPT-5.1 equivalents.
+This is an **opencode plugin** that enables OAuth authentication with OpenAI's ChatGPT Plus/Pro Codex backend. It allows users to access `gpt-5.4`, `gpt-5.4-pro`, `gpt-5.3-codex`, `gpt-5.3`, `gpt-5.2-codex`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.2`, and `gpt-5.1` models through their ChatGPT subscription instead of using OpenAI Platform API credits. Legacy GPT-5.0 models are automatically normalized to their GPT-5.1 equivalents.
 
-**Key architecture principle**: 6-step fetch flow that intercepts opencode's OpenAI SDK requests, transforms them for the ChatGPT backend API, and handles OAuth token management per account.
+**Key architecture principle**: 6-step fetch flow that intercepts opencode's OpenAI SDK requests, transforms them for the ChatGPT backend API, and handles OAuth token management per account. The implementation now also includes a proactive background refresh queue, per-account auth-failure cooldowns, tiered 429 handling, and headless/device-code auth.
 
 ## Build & Test Commands
 
@@ -38,9 +38,9 @@ bun run test:coverage
 
 The main entry point orchestrates a **6-step fetch flow** (token refresh is now per-account inside the retry loop):
 
-1. **URL Rewriting**: Transform OpenAI Platform API URLs → ChatGPT backend API (`https://chatgpt.com/backend-api/codex/responses`)
+1. **URL Rewriting**: Transform OpenAI Platform API URLs (`/responses` and `/chat/completions`) → ChatGPT backend API (`https://chatgpt.com/backend-api/codex/responses`)
 2. **Request Transformation**:
-   - Normalize model names (all variants → `gpt-5.3`, `gpt-5.3-codex`, `gpt-5.2`, `gpt-5.2-codex`, `gpt-5.1`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5`, `gpt-5-codex`, or `codex-mini-latest`)
+   - Normalize model names (all variants → `gpt-5.4`, `gpt-5.4-pro`, `gpt-5.3`, `gpt-5.3-codex`, `gpt-5.2`, `gpt-5.2-codex`, `gpt-5.1`, `gpt-5.1-codex`, `gpt-5.1-codex-max`, or `gpt-5.1-codex-mini`)
    - Inject Codex system instructions from latest GitHub release
    - Apply reasoning configuration (effort, summary, verbosity)
    - Add CODEX_MODE bridge prompt (default) or tool remap message (legacy)
@@ -48,11 +48,13 @@ The main entry point orchestrates a **6-step fetch flow** (token refresh is now 
    - Filter conversation history (remove `rs_*` IDs for stateless operation)
 3. **Account Selection + Token Refresh** (per-account retry loop):
    - Pick next account from pool using round-robin or sticky strategy
-   - Refresh token for selected account if expired (auth failure skips account without rate-limit penalty)
+   - Skip accounts in auth-failure cooldown
+   - Refresh token for selected account if expired (auth failure increments failure counter and can trigger cooldown)
    - Rotate to next account automatically on 429 responses
-4. **Headers**: Add OAuth token + selected ChatGPT account ID
+   - If all accounts are rate-limited but one recovers within 5 minutes, wait and retry instead of failing immediately
+4. **Headers**: Add OAuth token + selected ChatGPT account ID, plus `originator=opencode`, `session_id` from the real opencode session, and a plugin-specific User-Agent
 5. **Request Execution**: Send to Codex backend
-6. **Response Handling**: Convert SSE to JSON (non-tool requests) or pass through; optional debug logging (`ENABLE_PLUGIN_REQUEST_LOGGING=1`)
+6. **Response Handling**: Convert SSE to JSON (non-tool requests) or pass through; tier 429 cooldowns by ChatGPT error code; optional debug logging (`ENABLE_PLUGIN_REQUEST_LOGGING=1`)
 
 ### Module Organization
 
@@ -62,7 +64,7 @@ The main entry point orchestrates a **6-step fetch flow** (token refresh is now 
 - Configuration loading and CODEX_MODE determination
 
 **Authentication** (`lib/auth/`)
-- `auth.ts`: OAuth flow (PKCE, token exchange, JWT decoding, refresh)
+- `auth.ts`: OAuth flows (browser PKCE, headless/device-code), token exchange, JWT decoding, account ID extraction, refresh
 - `server.ts`: Local HTTP server for OAuth callback (port 1455)
 - `browser.ts`: Platform-specific browser opening
 
@@ -77,9 +79,10 @@ The main entry point orchestrates a **6-step fetch flow** (token refresh is now 
 
 **Configuration** (`lib/`)
 - `config.ts`: Plugin config loading, CODEX_MODE determination
-- `constants.ts`: All magic values, URLs, error messages
+- `constants.ts`: All magic values, URLs, error messages, cooldown tiers, device auth endpoints
 - `types.ts`: TypeScript type definitions
 - `logger.ts`: Debug logging (controlled by env var)
+- `refresh-queue.ts`: Proactive background token refresh for account pool entries
 
 ### Key Design Patterns
 
@@ -100,6 +103,8 @@ The main entry point orchestrates a **6-step fetch flow** (token refresh is now 
 - Plugin defaults: `reasoningEffort: "medium"`, `reasoningSummary: "auto"`, `textVerbosity: "medium"`
 
 **4. Model Normalization** (GPT-5.0 → GPT-5.1 migration):
+- All `gpt-5.4-pro*` variants → `gpt-5.4-pro`
+- All `gpt-5.4*` variants → `gpt-5.4`
 - All `gpt-5.3-codex*` variants → `gpt-5.3-codex` (newest Codex model, supports xhigh)
 - All `gpt-5.3` variants → `gpt-5.3` (newest general-purpose model, supports none/low/medium/high/xhigh)
 - All `gpt-5.2-codex*` variants → `gpt-5.2-codex`
@@ -128,7 +133,7 @@ The main entry point orchestrates a **6-step fetch flow** (token refresh is now 
 **6. Codex Instructions Caching**:
 - Fetches from latest release tag (not main branch)
 - ETag-based HTTP conditional requests per model family
-- Separate cache files per family: `gpt-5.3-codex-instructions.md`, `gpt-5.3-instructions.md`, `gpt-5.2-codex-instructions.md`, `codex-max-instructions.md`, `codex-instructions.md`, `gpt-5.2-instructions.md`, `gpt-5.1-instructions.md`
+- Separate cache files per family: `gpt-5.4-instructions.md`, `gpt-5.3-codex-instructions.md`, `gpt-5.3-instructions.md`, `gpt-5.2-codex-instructions.md`, `codex-max-instructions.md`, `codex-instructions.md`, `gpt-5.2-instructions.md`, `gpt-5.1-instructions.md`
 - Cache invalidation when release tag changes
 - Falls back to bundled version if GitHub unavailable
 
@@ -151,15 +156,17 @@ All request transformations go through `transformRequestBody()`:
 
 ### OAuth Flow Modifications
 
-OAuth implementation follows OpenAI Codex CLI patterns:
+OAuth implementation follows OpenAI Codex CLI patterns, with first-party opencode compatibility where it differs:
 - Client ID: `app_EMoamEEZ73f0CkXaXp7hrann`
-- PKCE with S256 challenge
-- Special params: `codex_cli_simplified_flow=true`, `originator=codex_cli_rs`
+- Browser PKCE flow with S256 challenge
+- Headless/device-code auth flow via OpenAI device auth endpoints
+- Special params: `codex_cli_simplified_flow=true`, `originator=opencode`
 - Callback server on port 1455 (matches Codex CLI)
+- Prefer `accountId` from stored auth or `id_token`, then fall back to decoding `access_token`
 
 ### Testing Strategy
 
-- **247 comprehensive tests** covering all modules
+- **247 comprehensive tests** covering all modules, including device auth, JWT/account-ID extraction, account-pool cooldown logic, and request transformation
 - Test files mirror source structure (`test/auth.test.ts` ↔ `lib/auth/auth.ts`)
 - Mock-heavy testing (no actual network calls or file I/O in tests)
 - Focus on edge cases: token expiration, model normalization, input filtering, CODEX_MODE toggling

@@ -21,10 +21,16 @@ export interface AccountPoolEntry {
 	email?: string;
 	lastUsed?: number;
 	rateLimitedUntil?: number;
+	/** Timestamp until which this account is cooling down after consecutive auth failures */
+	coolingDownUntil?: number;
+	/** Number of consecutive auth/token-refresh failures (resets after FAILURE_RESET_MS) */
+	consecutiveFailures?: number;
+	/** Timestamp of the most recent failure, used for TTL-based counter reset */
+	lastFailureAt?: number;
 }
 
 export interface AccountPoolStorage {
-	version: 1;
+	version: 2;
 	activeIndex: number;
 	accounts: AccountPoolEntry[];
 }
@@ -96,6 +102,8 @@ export interface TokenSuccess {
 	access: string;
 	refresh: string;
 	expires: number;
+	/** id_token JWT returned by OpenAI — contains chatgpt_account_id as a dedicated claim */
+	id_token?: string;
 }
 
 /**
@@ -119,12 +127,18 @@ export interface ParsedAuthInput {
 }
 
 /**
- * JWT payload with ChatGPT account info
+ * JWT payload with ChatGPT account info.
+ * The account ID may be present at the root OR nested under the openai auth claim.
  */
 export interface JWTPayload {
+	/** Direct account ID claim (first-party opencode uses this as primary lookup) */
+	chatgpt_account_id?: string;
+	/** Nested claim used by some token variants */
 	"https://api.openai.com/auth"?: {
 		chatgpt_account_id?: string;
 	};
+	/** Org-based fallback when chatgpt_account_id is absent */
+	organizations?: Array<{ id: string }>;
 	[key: string]: unknown;
 }
 

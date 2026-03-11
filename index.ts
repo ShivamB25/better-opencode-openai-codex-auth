@@ -22,14 +22,17 @@
  * @repository https://github.com/ShivamB25/better-opencode-openai-codex-auth
  */
 
+import os from "node:os";
 import type { Plugin, PluginInput } from "@opencode-ai/plugin";
 import type { Auth } from "@opencode-ai/sdk";
 import {
 	createAuthorizationFlow,
-	decodeJWT,
+	createDeviceAuthorizationFlow,
+	extractAccountId,
+	extractAccountIdFromToken,
 	exchangeAuthorizationCode,
 	parseAuthorizationInput,
-	refreshAccessToken,
+	refreshAccessTokenShared,
 	REDIRECT_URI,
 } from "./lib/auth/auth.js";
 import { openBrowserUrl } from "./lib/auth/browser.js";
@@ -40,9 +43,10 @@ import {
 	CODEX_BASE_URL,
 	DUMMY_API_KEY,
 	ERROR_MESSAGES,
-	JWT_CLAIM_PATH,
 	LOG_STAGES,
+	MAX_RECOVERY_WAIT_MS,
 	PLUGIN_NAME,
+	PLUGIN_VERSION,
 	PROVIDER_ID,
 } from "./lib/constants.js";
 import { logRequest, logDebug, logWarn } from "./lib/logger.js";
@@ -56,6 +60,23 @@ import {
 } from "./lib/request/fetch-helpers.js";
 import type { RequestBody, UserConfig } from "./lib/types.js";
 import { AccountPool } from "./lib/account-pool.js";
+import { ProactiveRefreshQueue } from "./lib/refresh-queue.js";
+
+/**
+ * Parse a ChatGPT error code from a 429 response body.
+ * Used for tiered cooldown durations (#10).
+ */
+async function parseErrorCode(response: Response): Promise<string | undefined> {
+	try {
+		const clone = response.clone();
+		const text = await clone.text();
+		if (!text) return undefined;
+		const parsed = JSON.parse(text) as { error?: { code?: string; type?: string } };
+		return (parsed?.error?.code ?? parsed?.error?.type) || undefined;
+	} catch {
+		return undefined;
+	}
+}
 
 /**
  * Build a 429 response when all accounts are rate-limited
@@ -84,18 +105,6 @@ function buildAllRateLimitedResponse(retryAfterMs: number | null): Response {
 
 /**
  * OpenAI Codex OAuth authentication plugin for opencode
- *
- * This plugin enables opencode to use OpenAI's Codex backend via ChatGPT Plus/Pro
- * OAuth authentication, allowing users to leverage their ChatGPT subscription
- * instead of OpenAI Platform API credits.
- *
- * @example
- * ```json
- * {
- *   "plugin": ["better-opencode-openai-codex-auth"],
- *   "model": "openai/gpt-5-codex"
- * }
- * ```
  */
 export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 	const buildManualOAuthFlow = (pkce: { verifier: string }, url: string) => ({
@@ -112,37 +121,40 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 				pkce.verifier,
 				REDIRECT_URI,
 			);
-			return tokens?.type === "success" ? tokens : { type: "failed" as const };
+			if (tokens?.type !== "success") return { type: "failed" as const };
+			return {
+				...tokens,
+				accountId: extractAccountId({
+					access_token: tokens.access,
+					id_token: tokens.id_token,
+				}),
+			};
 		},
 	});
+
 	return {
 		auth: {
 			provider: PROVIDER_ID,
+
 			/**
-			 * Loader function that configures OAuth authentication and request handling
-			 *
-			 * This function:
-			 * 1. Validates OAuth authentication
-			 * 2. Extracts ChatGPT account ID from access token
-			 * 3. Loads user configuration from opencode.json
-			 * 4. Fetches Codex system instructions from GitHub (cached)
-			 * 5. Returns SDK configuration with custom fetch implementation
-			 *
-			 * @param getAuth - Function to retrieve current auth state
-			 * @param provider - Provider configuration from opencode.json
-			 * @returns SDK configuration object or empty object for non-OAuth auth
+			 * Loader: validates OAuth auth, sets up per-account token management,
+			 * starts proactive background refresh, and returns the custom fetch.
 			 */
 			async loader(getAuth: () => Promise<Auth>, provider: unknown) {
 				const auth = await getAuth();
 
-				// Only handle OAuth auth type, skip API key auth
+				// Only handle OAuth auth type
 				if (auth.type !== "oauth") {
 					return {};
 				}
 
-				// Extract ChatGPT account ID from JWT access token
-				const decoded = decodeJWT(auth.access);
-				const accountId = decoded?.[JWT_CLAIM_PATH]?.chatgpt_account_id;
+				// Extract ChatGPT account ID — prefer stored accountId (#5), then id_token,
+				// then decode access token (checks root + nested JWT claim locations)
+				const authWithAccount = auth as typeof auth & { accountId?: string; id_token?: string };
+				let accountId: string | undefined =
+					authWithAccount.accountId ||
+					(authWithAccount.id_token ? extractAccountIdFromToken(authWithAccount.id_token) : undefined) ||
+					extractAccountIdFromToken(auth.access);
 
 				if (!accountId) {
 					logDebug(
@@ -150,6 +162,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 					);
 					return {};
 				}
+
 				// Extract user configuration (global + per-model options)
 				const providerConfig = provider as
 					| { options?: Record<string, unknown>; models?: UserConfig["models"] }
@@ -159,8 +172,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 					models: providerConfig?.models || {},
 				};
 
-				// Load plugin configuration and determine CODEX_MODE
-				// Priority: CODEX_MODE env var > config file > default (true)
+				// Load plugin configuration
 				const pluginConfig = loadPluginConfig();
 				const codexMode = getCodexMode(pluginConfig);
 				const accountSelectionStrategy =
@@ -175,69 +187,63 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 						logWarn("Failed to persist account pool", error);
 					}
 				};
+
+				// Sync current auth into pool
 				accountPool.upsert({
 					accountId,
 					access: auth.access,
 					refresh: auth.refresh,
 					expires: auth.expires,
 					email:
-						typeof decoded?.email === "string"
-							? decoded.email
+						typeof (auth as Record<string, unknown>).email === "string"
+							? (auth as Record<string, unknown>).email as string
 							: undefined,
 				});
 				savePool();
 
-				// Return SDK configuration
+				// Start proactive background token refresh (#8)
+				const refreshQueue = new ProactiveRefreshQueue(accountPool);
+				refreshQueue.start();
+
 				return {
 					apiKey: DUMMY_API_KEY,
 					baseURL: CODEX_BASE_URL,
-					/**
-					 * Custom fetch implementation for Codex API
-					 *
-					 * Handles:
-					 * - Per-account token refresh when expired (inside retry loop)
-					 * - URL rewriting for Codex backend
-					 * - Request body transformation
-					 * - OAuth header injection per selected account
-					 * - Automatic 429 rotation across account pool
-					 * - SSE to JSON conversion for non-tool requests
-					 * - Error handling and logging
-					 *
-					 * @param input - Request URL or Request object
-					 * @param init - Request options
-					 * @returns Response from Codex API
-					 */
+
 					async fetch(
 						input: Request | string | URL,
 						init?: RequestInit,
 					): Promise<Response> {
 						const latestAuth = await getAuth();
-						let decodedAccountId: string | undefined;
+						const latestWithAccount = latestAuth as typeof latestAuth & {
+							accountId?: string;
+							id_token?: string;
+						};
+
 						if (latestAuth.type === "oauth") {
-							const latestDecoded = decodeJWT(latestAuth.access);
-							decodedAccountId = latestDecoded?.[JWT_CLAIM_PATH]?.chatgpt_account_id;
-							if (decodedAccountId) {
+							// Re-extract account ID with the priority chain (#5)
+							const latestAccountId =
+								latestWithAccount.accountId ||
+								(latestWithAccount.id_token
+									? extractAccountIdFromToken(latestWithAccount.id_token)
+									: undefined) ||
+								extractAccountIdFromToken(latestAuth.access);
+
+							if (latestAccountId) {
+								accountId = latestAccountId;
 								accountPool.upsert({
-									accountId: decodedAccountId,
+									accountId: latestAccountId,
 									access: latestAuth.access,
 									refresh: latestAuth.refresh,
 									expires: latestAuth.expires,
-									email:
-										typeof latestDecoded?.email === "string"
-											? latestDecoded.email
-											: undefined,
 								});
 							}
 						}
 
-						// Step 1: Extract and rewrite URL for Codex backend
+						// Step 1: Extract and rewrite URL for Codex backend (#7)
 						const originalUrl = extractRequestUrl(input);
 						const url = rewriteUrlForCodex(originalUrl);
 
-						// Step 2: Transform request body with model-specific Codex instructions
-						// Instructions are fetched per model family (codex-max, codex, gpt-5.1)
-						// Capture original stream value before transformation
-						// generateText() sends no stream field, streamText() sends stream=true
+						// Step 2: Transform request body
 						let originalBody: Partial<RequestBody> = {};
 						if (typeof init?.body === "string") {
 							try {
@@ -256,36 +262,45 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 						);
 						const requestInit = transformation?.updatedInit ?? init;
 
+						// Step 3: Retry loop — one attempt per account
 						const attempts = Math.max(accountPool.count(), 1);
 						let lastRateLimitResponse: Response | null = null;
+
 						for (let i = 0; i < attempts; i++) {
 							const selected = accountPool.next(accountSelectionStrategy);
-							if (!selected) {
-								break;
-							}
+							if (!selected) break;
 
+							// Per-account token refresh when expired
+							// (Background queue handles this proactively; this is the safety net)
 							if (selected.expires < Date.now()) {
 								const selectedRefreshBefore = selected.refresh;
-								const refreshed = await refreshAccessToken(selected.refresh);
+								const refreshed = await refreshAccessTokenShared(
+									selected.accountId,
+									selected.refresh,
+								);
+
 								if (refreshed.type === "failed") {
-									// Auth failure (revoked/invalid token) is NOT a rate limit.
-									// Calling markRateLimited here would retry the same dead
-									// token after cooldown, looping forever. Skip this account
-									// for the current request without penalizing it.
+									// Auth failure (revoked/invalid token) — track it (#9)
 									logWarn("Token refresh failed for account, skipping", selected.accountId);
+									accountPool.markAuthFailure(selected.accountId);
 									savePool();
 									continue;
 								}
+
+								// Clear failure counter on successful refresh
+								accountPool.clearAuthFailures(selected.accountId);
 								accountPool.replaceAuth(
 									selected.accountId,
 									refreshed.access,
 									refreshed.refresh,
 									refreshed.expires,
 								);
+
+								// Keep opencode's stored auth in sync for the primary account
 								if (
 									latestAuth.type === "oauth" &&
 									(latestAuth.refresh === selectedRefreshBefore ||
-										decodedAccountId === selected.accountId)
+										accountId === selected.accountId)
 								) {
 									try {
 										await client.auth.set({
@@ -303,6 +318,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 								}
 							}
 
+							// Step 4: Build headers
 							const headers = createCodexHeaders(
 								requestInit,
 								selected.accountId,
@@ -314,6 +330,7 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 								},
 							);
 
+							// Step 5: Execute request
 							const response = await fetch(url, {
 								...requestInit,
 								headers,
@@ -329,24 +346,76 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 								totalAttempts: attempts,
 							});
 
+							// Step 6: Handle response
 							if (!response.ok) {
 								const mapped = await handleErrorResponse(response);
+
 								if (mapped.status === 429) {
+									// Parse error code for tiered cooldown (#10)
+									const errorCode = await parseErrorCode(mapped);
 									accountPool.markRateLimited(
 										selected.accountId,
 										mapped.headers,
 										rateLimitCooldownMs,
+										errorCode,
 									);
 									savePool();
 									lastRateLimitResponse = mapped;
 									continue;
 								}
+
 								savePool();
 								return mapped;
 							}
 
+							// Success — clear any failure state
+							accountPool.clearAuthFailures(selected.accountId);
 							savePool();
 							return await handleSuccessResponse(response, isStreaming);
+						}
+
+						// All accounts exhausted — wait for recovery if feasible (#11)
+						const minWaitMs = accountPool.getMinRetryAfterMs();
+						if (minWaitMs !== null && minWaitMs <= MAX_RECOVERY_WAIT_MS) {
+							logDebug(
+								`All accounts rate-limited. Waiting ${Math.ceil(minWaitMs / 1000)}s for recovery...`,
+							);
+							await new Promise<void>((r) => setTimeout(r, minWaitMs));
+
+							// One recovery attempt with the now-unblocked account
+							const recovered = accountPool.next(accountSelectionStrategy);
+							if (recovered) {
+								const recHeaders = createCodexHeaders(
+									requestInit,
+									recovered.accountId,
+									recovered.access,
+									{
+										model: transformation?.body.model,
+										promptCacheKey: (transformation?.body as RequestBody | undefined)
+											?.prompt_cache_key,
+									},
+								);
+								const recResponse = await fetch(url, { ...requestInit, headers: recHeaders });
+								if (recResponse.ok) {
+									accountPool.clearAuthFailures(recovered.accountId);
+									savePool();
+									return await handleSuccessResponse(recResponse, isStreaming);
+								}
+								const recMapped = await handleErrorResponse(recResponse);
+								if (recMapped.status === 429) {
+									const errorCode = await parseErrorCode(recMapped);
+									accountPool.markRateLimited(
+										recovered.accountId,
+										recMapped.headers,
+										rateLimitCooldownMs,
+										errorCode,
+									);
+									lastRateLimitResponse = recMapped;
+								} else {
+									savePool();
+									return recMapped;
+								}
+							}
 						}
 
 						savePool();
@@ -357,27 +426,16 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 					},
 				};
 			},
-				methods: [
-					{
-						label: AUTH_LABELS.OAUTH,
-						type: "oauth" as const,
-					/**
-					 * OAuth authorization flow
-					 *
-					 * Steps:
-					 * 1. Generate PKCE challenge and state for security
-					 * 2. Start local OAuth callback server on port 1455
-					 * 3. Open browser to OpenAI authorization page
-					 * 4. Wait for user to complete login
-					 * 5. Exchange authorization code for tokens
-					 *
-					 * @returns Authorization flow configuration
-					 */
+
+			methods: [
+				// ── Browser PKCE flow ──────────────────────────────────────────────────
+				{
+					label: AUTH_LABELS.OAUTH,
+					type: "oauth" as const,
 					authorize: async () => {
 						const { pkce, state, url } = await createAuthorizationFlow();
 						const serverInfo = await startLocalOAuthServer({ state });
 
-						// Attempt to open browser automatically
 						openBrowserUrl(url);
 
 						if (!serverInfo.ready) {
@@ -393,36 +451,95 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 								const result = await serverInfo.waitForCode(state);
 								serverInfo.close();
 
-								if (!result) {
-									return { type: "failed" as const };
-								}
+								if (!result) return { type: "failed" as const };
 
 								const tokens = await exchangeAuthorizationCode(
 									result.code,
 									pkce.verifier,
 									REDIRECT_URI,
 								);
+								if (tokens?.type !== "success") return { type: "failed" as const };
 
-								return tokens?.type === "success"
-									? tokens
-									: { type: "failed" as const };
+								// Return accountId so opencode stores it in auth — avoids JWT
+								// decode on every request (#5)
+								return {
+									...tokens,
+									accountId: extractAccountId({
+										access_token: tokens.access,
+										id_token: tokens.id_token,
+									}),
+								};
 							},
 						};
 					},
+				},
+
+				// ── Manual URL paste ───────────────────────────────────────────────────
+				{
+					label: AUTH_LABELS.OAUTH_MANUAL,
+					type: "oauth" as const,
+					authorize: async () => {
+						const { pkce, url } = await createAuthorizationFlow();
+						return buildManualOAuthFlow(pkce, url);
 					},
-					{
-						label: AUTH_LABELS.OAUTH_MANUAL,
-						type: "oauth" as const,
-						authorize: async () => {
-							const { pkce, url } = await createAuthorizationFlow();
-							return buildManualOAuthFlow(pkce, url);
-						},
+				},
+
+				// ── Headless / device-code flow (#1) ──────────────────────────────────
+				{
+					label: AUTH_LABELS.OAUTH_DEVICE,
+					type: "oauth" as const,
+					authorize: async () => {
+						const deviceFlow = await createDeviceAuthorizationFlow();
+
+						return {
+							url: deviceFlow.activateUrl,
+							method: "auto" as const,
+							instructions: `${AUTH_LABELS.INSTRUCTIONS_DEVICE}\n\nCode: ${deviceFlow.userCode}\nURL:  ${deviceFlow.activateUrl}`,
+							callback: async () => {
+								const tokens = await deviceFlow.poll();
+								if (tokens?.type !== "success") return { type: "failed" as const };
+								return {
+									...tokens,
+									accountId: extractAccountId({
+										access_token: tokens.access,
+										id_token: tokens.id_token,
+									}),
+								};
+							},
+						};
 					},
-					{
-						label: AUTH_LABELS.API_KEY,
-						type: "api" as const,
-					},
+				},
+
+				// ── API Key ────────────────────────────────────────────────────────────
+				{
+					label: AUTH_LABELS.API_KEY,
+					type: "api" as const,
+				},
 			],
+		},
+
+		/**
+		 * chat.headers hook — injected before every LLM request (#2, #4, #6).
+		 * Sets originator, User-Agent, and session_id using the platform session ID.
+		 */
+		"chat.headers": async (
+			hookInput: {
+				sessionID: string;
+				model: { providerID: string };
+			},
+			output: { headers: Record<string, string> },
+		) => {
+			if (hookInput.model.providerID !== PROVIDER_ID) return;
+
+			// #2: correct originator (not codex_cli_rs)
+			output.headers["originator"] = "opencode";
+
+			// #4: use the platform session ID (not a static random UUID)
+			output.headers["session_id"] = hookInput.sessionID;
+
+			// #6: proper User-Agent with version + OS info
+			output.headers["User-Agent"] =
+				`better-opencode-openai-codex-auth/${PLUGIN_VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`;
 		},
 	};
 };

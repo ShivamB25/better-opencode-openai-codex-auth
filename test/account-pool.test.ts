@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { AccountPool } from "../lib/account-pool.js";
@@ -148,5 +148,65 @@ describe("AccountPool", () => {
 		expect(minRetryAfter).not.toBeNull();
 		expect(minRetryAfter as number).toBeGreaterThan(2000);
 		expect(minRetryAfter as number).toBeLessThanOrEqual(5000);
+	});
+
+	it("deduplicates duplicate accounts on load by email", () => {
+		const now = Date.now();
+		const duplicatePayload = {
+			version: 2,
+			activeIndex: 0,
+			accounts: [
+				{
+					accountId: "a1",
+					access: "older-access",
+					refresh: "older-refresh",
+					expires: now + 10_000,
+					email: "same@example.com",
+				},
+				{
+					accountId: "a2",
+					access: "newer-access",
+					refresh: "newer-refresh",
+					expires: now + 120_000,
+					email: "same@example.com",
+				},
+			],
+		};
+
+		writeFileSync(testPath, `${JSON.stringify(duplicatePayload, null, 2)}\n`, "utf8");
+
+		const pool = AccountPool.load();
+		const selected = pool.next("sticky");
+
+		expect(pool.count()).toBe(1);
+		expect(selected?.access).toBe("newer-access");
+		expect(selected?.refresh).toBe("newer-refresh");
+	});
+
+	it("merges with latest on-disk state when two pool instances save independently", () => {
+		const poolA = AccountPool.load();
+		const poolB = AccountPool.load();
+
+		poolA.upsert({
+			accountId: "a1",
+			access: "access-1",
+			refresh: "refresh-1",
+			expires: Date.now() + 60_000,
+		});
+		poolB.upsert({
+			accountId: "a2",
+			access: "access-2",
+			refresh: "refresh-2",
+			expires: Date.now() + 60_000,
+		});
+
+		poolA.save();
+		poolB.save();
+
+		const reloaded = AccountPool.load();
+		expect(reloaded.count()).toBe(2);
+		const first = reloaded.next("round-robin");
+		const second = reloaded.next("round-robin");
+		expect([first?.accountId, second?.accountId].sort()).toEqual(["a1", "a2"]);
 	});
 });

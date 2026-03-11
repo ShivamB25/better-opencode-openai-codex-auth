@@ -5,6 +5,7 @@ import {
 	decodeJWT,
 	createAuthorizationFlow,
 	refreshAccessToken,
+	refreshAccessTokenShared,
 	CLIENT_ID,
 	AUTHORIZE_URL,
 	REDIRECT_URI,
@@ -33,6 +34,32 @@ describe('Auth Module', () => {
 			if (result.type === 'success') {
 				expect(result.refresh).toBe('existing-refresh');
 				expect(result.access).toBe('new-access');
+			}
+		});
+
+		it('deduplicates concurrent refreshes for the same account and token', async () => {
+			const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+				new Response(
+					JSON.stringify({
+						access_token: 'shared-access',
+						refresh_token: 'shared-refresh',
+						expires_in: 3600,
+					}),
+					{ status: 200, headers: { 'content-type': 'application/json' } },
+				),
+			);
+
+			const [one, two] = await Promise.all([
+				refreshAccessTokenShared('account-1', 'refresh-token-1'),
+				refreshAccessTokenShared('account-1', 'refresh-token-1'),
+			]);
+
+			expect(fetchSpy).toHaveBeenCalledTimes(1);
+			expect(one.type).toBe('success');
+			expect(two.type).toBe('success');
+			if (one.type === 'success' && two.type === 'success') {
+				expect(one.access).toBe('shared-access');
+				expect(two.access).toBe('shared-access');
 			}
 		});
 	});
@@ -154,7 +181,7 @@ describe('Auth Module', () => {
 			expect(url.searchParams.get('state')).toBe(flow.state);
 			expect(url.searchParams.get('id_token_add_organizations')).toBe('true');
 			expect(url.searchParams.get('codex_cli_simplified_flow')).toBe('true');
-			expect(url.searchParams.get('originator')).toBe('codex_cli_rs');
+			expect(url.searchParams.get('originator')).toBe('opencode');
 		});
 
 		it('should generate unique flows', async () => {
