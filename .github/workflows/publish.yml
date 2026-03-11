@@ -4,11 +4,13 @@ on:
   push:
     tags:
       - "v*"
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
-  contents: read
-  id-token: write # Required for npm Trusted Publishing (OIDC)
+  contents: write  # needed to push auto-created tags
+  id-token: write  # required for npm Trusted Publishing (OIDC)
 
 jobs:
   publish:
@@ -31,20 +33,37 @@ jobs:
       - name: Upgrade npm for OIDC support
         run: npm install -g npm@11.5.1
 
+      - name: Check if version is already published
+        id: version_check
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "version=$PKG_VERSION" >> $GITHUB_OUTPUT
+          if npm view better-opencode-openai-codex-auth@"$PKG_VERSION" version 2>/dev/null; then
+            echo "already_published=true" >> $GITHUB_OUTPUT
+            echo "Version $PKG_VERSION is already on npm — skipping publish."
+          else
+            echo "already_published=false" >> $GITHUB_OUTPUT
+            echo "Version $PKG_VERSION is not yet published — will publish."
+          fi
+
       - name: Install dependencies
+        if: steps.version_check.outputs.already_published == 'false'
         run: bun install --frozen-lockfile
 
       - name: Build
+        if: steps.version_check.outputs.already_published == 'false'
         run: bun run build
 
       - name: Typecheck
+        if: steps.version_check.outputs.already_published == 'false'
         run: bun run typecheck
 
       - name: Test
+        if: steps.version_check.outputs.already_published == 'false'
         run: bun run test
 
       - name: Verify tag matches package version
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' && steps.version_check.outputs.already_published == 'false'
         run: |
           TAG="${GITHUB_REF_NAME#v}"
           PKG_VERSION=$(node -p "require('./package.json').version")
@@ -53,7 +72,19 @@ jobs:
             exit 1
           fi
 
+      - name: Create and push release tag (main branch only)
+        if: github.ref_type != 'tag' && steps.version_check.outputs.already_published == 'false'
+        run: |
+          PKG_VERSION="${{ steps.version_check.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v$PKG_VERSION" || echo "Tag v$PKG_VERSION already exists locally"
+          git push origin "v$PKG_VERSION" || echo "Tag v$PKG_VERSION already pushed"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Publish to npm
+        if: steps.version_check.outputs.already_published == 'false'
         run: npm publish --provenance --access public
         env:
           # Explicitly empty to force OIDC authentication
