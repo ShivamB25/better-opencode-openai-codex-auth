@@ -171,6 +171,17 @@ OAuth implementation follows OpenAI Codex CLI patterns, with first-party opencod
 - Mock-heavy testing (no actual network calls or file I/O in tests)
 - Focus on edge cases: token expiration, model normalization, input filtering, CODEX_MODE toggling
 
+### Release / Version Bump Discipline
+
+When a change is intended to ship to users (especially anything affecting the installer, config templates, auth UX, or runtime behavior), the final implementation checklist must include a release-version review step.
+
+1. Verify whether `package.json` version needs a bump so npm can publish a new tarball.
+2. Keep `lib/constants.ts` `PLUGIN_VERSION` in sync with `package.json`.
+3. Run typecheck, build, and tests after the version bump.
+4. Only then commit/release.
+
+If the version is not bumped, npm `latest` will continue serving the old installer tarball even when GitHub `main` contains newer fixes.
+
 ## Important Configuration Differences
 
 This plugin **intentionally differs from opencode defaults** because it accesses ChatGPT backend API (not OpenAI Platform API):
