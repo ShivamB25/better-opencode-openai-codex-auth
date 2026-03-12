@@ -52,6 +52,15 @@ const pluginAccountsPath = join(homedir(), ".opencode", "openai-codex-accounts.j
 const pluginLogDir = join(homedir(), ".opencode", "logs", "codex-plugin");
 const opencodeCacheDir = join(homedir(), ".opencode", "cache");
 
+const LEGACY_MANAGED_MODEL_IDS = [
+	"gpt-5.2",
+	"gpt-5.2-codex",
+	"gpt-5.1-codex-max",
+	"gpt-5.1-codex",
+	"gpt-5.1-codex-mini",
+	"gpt-5.1",
+];
+
 function log(message) {
 	console.log(message);
 }
@@ -99,12 +108,15 @@ function mergeOpenAIConfig(existingOpenAI, templateOpenAI) {
 		template.models && typeof template.models === "object"
 			? template.models
 			: {};
+	const prunedExistingModels = Object.fromEntries(
+		Object.entries(existingModels).filter(([key]) => !LEGACY_MANAGED_MODEL_IDS.includes(key)),
+	);
 
 	return {
 		...existing,
 		...template,
 		options: { ...existingOptions, ...templateOptions },
-		models: { ...existingModels, ...templateModels },
+		models: { ...prunedExistingModels, ...templateModels },
 	};
 }
 
@@ -112,7 +124,10 @@ async function getKnownModelIds() {
 	const modernTemplate = await readJson(
 		join(repoRoot, "config", "opencode-modern.json"),
 	);
-	return new Set(Object.keys(modernTemplate?.provider?.openai?.models || {}));
+	return new Set([
+		...Object.keys(modernTemplate?.provider?.openai?.models || {}),
+		...LEGACY_MANAGED_MODEL_IDS,
+	]);
 }
 
 function formatJson(obj) {

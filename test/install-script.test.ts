@@ -41,7 +41,10 @@ describe('Install script', () => {
   "provider": {
     "openai": {
       "timeout": 60000,
-      "models": { "custom-model": { "name": "Custom" } }
+      "models": {
+        "custom-model": { "name": "Custom" },
+        "gpt-5.2": { "name": "GPT 5.2 (OAuth)" }
+      }
     }
   }
 }`,
@@ -55,6 +58,7 @@ describe('Install script', () => {
 		expect(data.plugin).toContain('some-other-plugin@1.2.3');
 		expect(data.provider.openai.timeout).toBe(60000);
 		expect(data.provider.openai.models['custom-model']).toBeDefined();
+		expect(data.provider.openai.models['gpt-5.2']).toBeUndefined();
 		expect(data.provider.openai.models['gpt-5.4']).toBeDefined();
 	});
 
