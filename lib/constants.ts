@@ -77,6 +77,7 @@ export const PLATFORM_OPENERS = {
 
 /** OAuth authorization labels */
 export const AUTH_LABELS = {
+	MANAGE_ACCOUNTS: "Manage accounts (view / remove)",
 	OAUTH: "ChatGPT Plus/Pro (browser)",
 	OAUTH_MANUAL: "ChatGPT Plus/Pro (manual URL paste)",
 	/** Headless device-code flow — no browser required */

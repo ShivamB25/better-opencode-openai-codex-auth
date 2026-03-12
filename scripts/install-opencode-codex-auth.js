@@ -11,15 +11,12 @@ const PLUGIN_NAME = "better-opencode-openai-codex-auth";
 const args = new Set(process.argv.slice(2));
 
 if (args.has("--help") || args.has("-h")) {
-	console.log(`Usage: ${PLUGIN_NAME} [--modern|--legacy] [--uninstall] [--all] [--dry-run] [--no-cache-clear]\n\n` +
+	console.log(`Usage: ${PLUGIN_NAME} [--uninstall] [--all] [--dry-run] [--no-cache-clear]\n\n` +
 		"Default behavior:\n" +
-		"  - Installs/updates global config at ~/.config/opencode/opencode.jsonc (falls back to .json)\n" +
-		"  - Uses modern config (variants) by default\n" +
+		"  - Installs/updates global config at ~/.config/opencode/opencode.jsonc\n" +
 		"  - Ensures plugin is unpinned (latest)\n" +
 		"  - Clears OpenCode plugin cache\n\n" +
 		"Options:\n" +
-		"  --modern           Force modern config (default)\n" +
-		"  --legacy           Use legacy config (older OpenCode versions)\n" +
 		"  --uninstall        Remove plugin + OpenAI config entries from global config\n" +
 		"  --all              With --uninstall, also remove tokens, logs, and cached instructions\n" +
 		"  --dry-run          Show actions without writing\n" +
@@ -28,8 +25,6 @@ if (args.has("--help") || args.has("-h")) {
 	process.exit(0);
 }
 
-const useLegacy = args.has("--legacy");
-const useModern = args.has("--modern") || !useLegacy;
 const uninstallRequested = args.has("--uninstall") || args.has("--all");
 const uninstallAll = args.has("--all");
 const dryRun = args.has("--dry-run");
@@ -37,11 +32,7 @@ const skipCacheClear = args.has("--no-cache-clear");
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "..");
-const templatePath = join(
-	repoRoot,
-	"config",
-	useLegacy ? "opencode-legacy.json" : "opencode-modern.json"
-);
+const templatePath = join(repoRoot, "config", "opencode-modern.json");
 
 const configDir = join(homedir(), ".config", "opencode");
 const configPathJson = join(configDir, "opencode.json");
@@ -117,19 +108,10 @@ function mergeOpenAIConfig(existingOpenAI, templateOpenAI) {
 }
 
 async function getKnownModelIds() {
-	const legacyTemplate = await readJson(
-		join(repoRoot, "config", "opencode-legacy.json"),
-	);
 	const modernTemplate = await readJson(
 		join(repoRoot, "config", "opencode-modern.json"),
 	);
-	const legacyModels = Object.keys(
-		legacyTemplate?.provider?.openai?.models || {},
-	);
-	const modernModels = Object.keys(
-		modernTemplate?.provider?.openai?.models || {},
-	);
-	return new Set([...legacyModels, ...modernModels]);
+	return new Set(Object.keys(modernTemplate?.provider?.openai?.models || {}));
 }
 
 function formatJson(obj) {
@@ -407,7 +389,7 @@ async function main() {
 	}
 
 	if (dryRun) {
-		log(`[dry-run] Would write ${configPath} using ${useLegacy ? "legacy" : "modern"} config`);
+		log(`[dry-run] Would write ${configPath}`);
 	} else {
 		await mkdir(configDir, { recursive: true });
 		if (nextContent && configExists) {
@@ -415,16 +397,14 @@ async function main() {
 		} else {
 			await writeFile(configPath, formatJson(nextConfig), "utf-8");
 		}
-		log(`Wrote ${configPath} (${useLegacy ? "legacy" : "modern"} config)`);
+		log(`Wrote ${configPath}`);
 	}
 
 	await clearCache();
 
 	log("\nDone. Restart OpenCode to (re)install the plugin.");
 	log("Example: opencode");
-	if (useLegacy) {
-		log("Note: Legacy config requires OpenCode v1.0.209 or older.");
-	}
+
 }
 
 main().catch((error) => {

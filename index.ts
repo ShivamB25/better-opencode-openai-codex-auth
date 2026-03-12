@@ -37,6 +37,7 @@ import {
 } from "./lib/auth/auth.js";
 import { openBrowserUrl } from "./lib/auth/browser.js";
 import { startLocalOAuthServer } from "./lib/auth/server.js";
+import { showAccountManager } from "./lib/auth/ui/account-menu.js";
 import { getCodexMode, loadPluginConfig } from "./lib/config.js";
 import {
 	AUTH_LABELS,
@@ -428,6 +429,35 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 			},
 
 			methods: [
+				// ── Account management (view / remove existing accounts) ───────────────
+				{
+					label: AUTH_LABELS.MANAGE_ACCOUNTS,
+					type: "oauth" as const,
+					authorize: async () => {
+						const result = await showAccountManager();
+
+						// If user wants to add or refresh a token, tell them to pick
+						// an actual auth method from the list instead
+						if (result.action === "add" || result.action === "refresh-token") {
+							return {
+								url: "",
+								method: "code" as const,
+								instructions:
+									"Select one of the auth methods above (browser, manual, or headless) to add a new account.",
+								callback: async () => ({ type: "failed" as const }),
+							};
+						}
+
+						// User is done managing — nothing to store
+						return {
+							url: "",
+							method: "code" as const,
+							instructions: "Done. No new account was added. Restart opencode.",
+							callback: async () => ({ type: "failed" as const }),
+						};
+					},
+				},
+
 				// ── Browser PKCE flow ──────────────────────────────────────────────────
 				{
 					label: AUTH_LABELS.OAUTH,
@@ -436,9 +466,13 @@ export const OpenAIAuthPlugin: Plugin = async ({ client }: PluginInput) => {
 						const { pkce, state, url } = await createAuthorizationFlow();
 						const serverInfo = await startLocalOAuthServer({ state });
 
-						openBrowserUrl(url);
+						const browserOpened = openBrowserUrl(url);
 
-						if (!serverInfo.ready) {
+						// Fall back immediately to manual paste when:
+						//   - local callback server could not bind (port conflict)
+						//   - browser could not be launched (headless / no DISPLAY)
+						// This avoids a 60-second timeout before showing the user the URL.
+						if (!serverInfo.ready || !browserOpened) {
 							serverInfo.close();
 							return buildManualOAuthFlow(pkce, url);
 						}
