@@ -33,14 +33,7 @@ Then authenticate and run:
 
 ```bash
 opencode auth login
-opencode run "write hello world to test.txt" --model=openai/gpt-5.2 --variant=medium
-```
-
-**Legacy OpenCode** (v1.0.209 and below):
-
-```bash
-bunx better-opencode-openai-codex-auth@latest --legacy
-opencode run "write hello world to test.txt" --model=openai/gpt-5.2-medium
+opencode run "write hello world to test.txt" --model=openai/gpt-5.4 --variant=medium
 ```
 
 **Uninstall:**
@@ -80,19 +73,14 @@ bunx better-opencode-openai-codex-auth@dev
 
 - **gpt-5.3** (none/low/medium/high/xhigh)
 - **gpt-5.3-codex** (low/medium/high/xhigh)
-- **gpt-5.2** (none/low/medium/high/xhigh)
-- **gpt-5.2-codex** (low/medium/high/xhigh)
-- **gpt-5.1-codex-max** (low/medium/high/xhigh)
-- **gpt-5.1-codex** (low/medium/high)
-- **gpt-5.1-codex-mini** (medium/high)
-- **gpt-5.1** (none/low/medium/high)
+- **gpt-5.4** (none/low/medium/high/xhigh)
+- **gpt-5.4-pro** (medium/high/xhigh)
 
 ---
 
 ## Configuration
 
 - **Modern** (OpenCode v1.0.210+): `config/opencode-modern.json`
-- **Legacy** (OpenCode v1.0.209 and below): `config/opencode-legacy.json`
 
 Minimal configs don't work with GPT-5.x; use the full configs above.
 
@@ -101,8 +89,8 @@ Minimal configs don't work with GPT-5.x; use the full configs above.
 ## Features
 
 - ChatGPT Plus/Pro OAuth (same flow as official Codex CLI)
-- 33 model presets across GPT-5.3, GPT-5.2, and GPT-5.1 families
-- Variant system support (v1.0.210+) + legacy presets
+- 18 model presets across GPT-5.4 and GPT-5.3 families
+- Variant system support (v1.0.210+)
 - Multimodal input for all models
 - Usage-aware errors with automatic token refresh
 - Multi-account pool with round-robin or sticky selection (`~/.opencode/openai-codex-accounts.json`)

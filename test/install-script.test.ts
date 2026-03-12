@@ -51,11 +51,11 @@ describe('Install script', () => {
 
 		const { content, data } = readJsoncFile(configPath);
 		expect(content).toContain('// My existing config');
-		expect(data.plugin).toContain('better-opencode-openai-codex-auth');
+		expect(data.plugin).toContain('better-opencode-openai-codex-auth@latest');
 		expect(data.plugin).toContain('some-other-plugin@1.2.3');
 		expect(data.provider.openai.timeout).toBe(60000);
 		expect(data.provider.openai.models['custom-model']).toBeDefined();
-		expect(data.provider.openai.models['gpt-5.2']).toBeDefined();
+		expect(data.provider.openai.models['gpt-5.4']).toBeDefined();
 	});
 
 	it('prefers JSONC when both jsonc and json exist', () => {
@@ -75,7 +75,7 @@ describe('Install script', () => {
 		runInstaller(['--no-cache-clear'], homeDir);
 
 		const { data } = readJsoncFile(jsoncPath);
-		expect(data.plugin).toContain('better-opencode-openai-codex-auth');
+		expect(data.plugin).toContain('better-opencode-openai-codex-auth@latest');
 		const jsonAfter = readFileSync(jsonPath, 'utf-8');
 		expect(jsonAfter).toBe(jsonBefore);
 	});
@@ -86,7 +86,7 @@ describe('Install script', () => {
 		const configPath = join(homeDir, '.config', 'opencode', 'opencode.jsonc');
 		expect(existsSync(configPath)).toBe(true);
 		const { data } = readJsoncFile(configPath);
-		expect(data.plugin).toContain('better-opencode-openai-codex-auth');
+		expect(data.plugin).toContain('better-opencode-openai-codex-auth@latest');
 	});
 
 	it('uninstall removes plugin models but keeps custom config', () => {
@@ -101,8 +101,8 @@ describe('Install script', () => {
       "timeout": 60000,
       "models": {
         "custom-model": { "name": "Custom" },
-        "gpt-5.2": { "name": "GPT 5.2 (OAuth)" },
-        "gpt-5.2-codex": { "name": "GPT 5.2 Codex (OAuth)" }
+		        "gpt-5.4": { "name": "GPT 5.4 (OAuth)" },
+		        "gpt-5.3-codex": { "name": "GPT 5.3 Codex (OAuth)" }
       }
     },
     "anthropic": { "models": { "claude": { "name": "Claude" } } }
@@ -116,8 +116,8 @@ describe('Install script', () => {
 		expect(data.plugin).toEqual(['some-other-plugin@1.2.3']);
 		expect(data.provider.openai.timeout).toBe(60000);
 		expect(data.provider.openai.models['custom-model']).toBeDefined();
-		expect(data.provider.openai.models['gpt-5.2']).toBeUndefined();
-		expect(data.provider.openai.models['gpt-5.2-codex']).toBeUndefined();
+		expect(data.provider.openai.models['gpt-5.4']).toBeUndefined();
+		expect(data.provider.openai.models['gpt-5.3-codex']).toBeUndefined();
 		expect(data.provider.anthropic).toBeDefined();
 	});
 

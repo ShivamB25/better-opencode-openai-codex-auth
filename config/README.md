@@ -7,6 +7,8 @@ This directory contains the opencode configuration template for the OpenAI Codex
 **`opencode-modern.json`** — the only config. Requires opencode v1.0.210+ (variants system).
 The installer (`bunx better-opencode-openai-codex-auth@latest`) writes this to `~/.config/opencode/opencode.jsonc` automatically.
 
+The shipped template pins the plugin as `better-opencode-openai-codex-auth@latest` so fresh installs always resolve the latest published npm tarball.
+
 ## Available Models
 
 | Model | Variants | Notes |
@@ -15,13 +17,6 @@ The installer (`bunx better-opencode-openai-codex-auth@latest`) writes this to `
 | `gpt-5.4-pro` | medium / high / xhigh | Pro tier (no none/low) |
 | `gpt-5.3-codex` | low / medium / high / xhigh | Newest Codex family |
 | `gpt-5.3` | none / low / medium / high / xhigh | GPT-5.3 general |
-| `gpt-5.2` | none / low / medium / high / xhigh | |
-| `gpt-5.2-codex` | low / medium / high / xhigh | |
-| `gpt-5.1-codex-max` | low / medium / high / xhigh | |
-| `gpt-5.1-codex` | low / medium / high | |
-| `gpt-5.1-codex-mini` | medium / high | |
-| `gpt-5.1` | none / low / medium / high | |
-
 ## Manual install
 
 ```bash

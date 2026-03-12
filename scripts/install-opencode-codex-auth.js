@@ -8,6 +8,7 @@ import { homedir } from "node:os";
 import { parse, modify, applyEdits, printParseErrorCode } from "jsonc-parser";
 
 const PLUGIN_NAME = "better-opencode-openai-codex-auth";
+const PLUGIN_REF = `${PLUGIN_NAME}@latest`;
 const args = new Set(process.argv.slice(2));
 
 if (args.has("--help") || args.has("-h")) {
@@ -61,7 +62,7 @@ function normalizePluginList(list) {
 		if (typeof entry !== "string") return true;
 		return entry !== PLUGIN_NAME && !entry.startsWith(`${PLUGIN_NAME}@`);
 	});
-	return [...filtered, PLUGIN_NAME];
+	return [...filtered, PLUGIN_REF];
 }
 
 function removePluginEntries(list) {
@@ -354,7 +355,7 @@ async function main() {
 	}
 
 	const template = await readJson(templatePath);
-	template.plugin = [PLUGIN_NAME];
+	template.plugin = [PLUGIN_REF];
 
 	let nextConfig = template;
 	let nextContent = null;

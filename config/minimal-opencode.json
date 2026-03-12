@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["better-opencode-openai-codex-auth"],
+  "plugin": ["better-opencode-openai-codex-auth@latest"],
   "provider": {
     "openai": {
       "options": {

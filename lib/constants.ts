@@ -7,7 +7,7 @@
 export const PLUGIN_NAME = "openai-codex-plugin";
 
 /** Plugin version — keep in sync with package.json */
-export const PLUGIN_VERSION = "0.1.3";
+export const PLUGIN_VERSION = "0.1.4";
 
 /** Base URL for ChatGPT backend API */
 export const CODEX_BASE_URL = "https://chatgpt.com/backend-api";
