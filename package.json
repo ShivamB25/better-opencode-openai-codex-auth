@@ -59,7 +59,7 @@
     "@opencode-ai/sdk": "^1.2.24",
     "@types/node": "^25.4.0",
     "@vitest/ui": "^4.0.18",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.2",
     "vitest": "^4.0.18"
   },
   "dependencies": {
